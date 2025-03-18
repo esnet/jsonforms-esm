@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>json-form demo</title>
+    <link rel="stylesheet" href="jsonforms.css">
+  </head>
+  <body>
+    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="jsonforms.esm.js"></script>
+    <noscript>
+      <strong
+        >json-form doesn't work properly without JavaScript
+        enabled. Please enable it to continue.</strong
+      >
+    </noscript>
+
+    <json-form
+      form-data='{"a_number": 5, "another_property": "Here is a value!"}'
+      schema-data='{ 
+        "properties": {
+          "a_number": { "type": "number" },
+          "another_property": { "type": "string" }
+        }
+      }'
+      layout-data='{
+        "type": "VerticalLayout",
+        "elements": [{
+            "type": "Control",
+            "scope": "#/properties/a_number"
+        },
+        {
+            "type": "Control",
+            "scope": "#/properties/another_property"
+        }]
+      }'
+    ></json-form>
+
+    <script>
+      function changeFormData(){
+        let elem = document.querySelector("json-form");
+        let newFormData = {
+          "a_number": Math.floor(Math.random() * 100),
+          "another_property": "Here's a different value"
+        }
+        elem.setAttribute("form-data", JSON.stringify(newFormData))
+      }
+    </script>
+    <button onclick='changeFormData()'>Change Form Data</button>
+    <br>
+    <script>
+      function invalidFormData(){
+        let elem = document.querySelector("json-form");
+        elem.setAttribute("form-data", "nonsense")
+      }
+    </script>
+    <button onclick='invalidFormData()'>Change Form Data to Invalid Data</button>
+    <br>
+    <script>
+      function invalidSchemaData(){
+        let elem = document.querySelector("json-form");
+        elem.setAttribute("schema-data", "nonsense")
+      }
+    </script>
+    <button onclick='invalidSchemaData()'>Change Schema Data to Invalid Data</button>
+    <br>
+    <script>
+      function invalidLayoutData(){
+        let elem = document.querySelector("json-form");
+        elem.setAttribute("layout-data", "nonsense")
+      }
+    </script>
+    <button onclick='invalidLayoutData()'>Change Layout Data to Invalid Data</button>
+
+
+  </body>
+</html>
+
