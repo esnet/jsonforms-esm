@@ -8,7 +8,7 @@
         "dev": "vite",
         "build": "vite build && cp index.html dist/index.html",
         "preview": "vite preview",
-        "test": "karma start --single-run --browsers Chrome"
+        "test": "karma start --single-run --browsers Chrome karma.conf.cjs"
     },
     "dependencies":
     {
