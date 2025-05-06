@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="jsonforms.css">
   </head>
   <body>
-    <script type="module" src="/src/main.js"></script>
     <script type="module" src="jsonforms.esm.js"></script>
     <noscript>
       <strong
@@ -53,6 +52,14 @@
     <script>
       function invalidFormData(){
         let elem = document.querySelector("json-form");
+        elem.setAttribute("form-data", '{"hello": "world"}')
+      }
+    </script>
+    <button onclick='invalidFormData()'>Change Form Data to Empty Object</button>
+    <br>
+    <script>
+      function invalidFormData(){
+        let elem = document.querySelector("json-form");
         elem.setAttribute("form-data", "nonsense")
       }
     </script>
@@ -73,6 +80,20 @@
       }
     </script>
     <button onclick='invalidLayoutData()'>Change Layout Data to Invalid Data</button>
+    <br>
+    <script>
+        function serializeForm(){
+          let elem = document.querySelector("json-form");
+          console.log(elem.serializeForm());
+        }
+    </script>
+    <button onclick='serializeForm()'>Serialize Form Data to Console</button>
+    <script>
+        let elem = document.querySelector("json-form");
+        elem.addEventListener("update", function(event){
+          console.log("Update Listener:", event.target.instance);
+        })
+    </script>
 
 
   </body>

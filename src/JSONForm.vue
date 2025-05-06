@@ -12,8 +12,8 @@ export default defineComponent({
     "formData": String,
     "schemaData": String,
     "layoutData": String,
-
   },
+  ref: ['test'],
   components: {
     JsonForms,
   },
@@ -55,27 +55,35 @@ export default defineComponent({
     onChange(event) {
       this.data = event.data;
     },
-    onUpdated(event){
-      console.log("updated.", event);
-    }
   },
 });
 
 </script>
 <script setup>
+import { onUpdated, nextTick, defineExpose, ref, computed } from 'vue';
+const elem = ref(null);
+const emit = defineEmits(['update', 'change'])
+
 // set up a JS signal that we'll emit on update
 // we can listen for this outside the element
 // with element.addEventListener("update", ()=>{ /* code here */ })
-import { onUpdated, nextTick } from 'vue';
-const emit = defineEmits(['update'])
 onUpdated(async ()=>{
   await nextTick();
   emit("update");
 })
+
+// expose e.g. document.querySelector("json-form").instance
+const instance = computed(()=>{ return elem?.value?.data })
+// expose e.g. document.querySelector("json-form").
+const serializeForm = computed(()=>{
+  return ()=>{ return JSON.stringify(elem.value?.data); }
+})
+defineExpose({instance, serializeForm})
 </script>
 
 <template>
   <json-forms
+    ref="elem"
     :data="data"
     :schema="schema"
     :uischema="uischema"

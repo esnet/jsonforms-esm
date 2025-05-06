@@ -94,11 +94,5 @@ https://unpkg.com/jsonforms-esm@3.5.1/dist/index.html
   ```
 
 
-## OK But that's too weird, what is this the 90s? I want NPM & friends so I can have more build and bundling problems!
-
-`npm install jsonforms-esm`
-
-Actually, you should probably just use jsonforms: `https://jsonforms.io/`
-
-Enjoy your developer experience.
+## If you don't understand why you'd need this form element, you should probably just use jsonforms from the canonical upstream repo with real documentation: `https://jsonforms.io/`
 

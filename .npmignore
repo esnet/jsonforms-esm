@@ -6,3 +6,4 @@ tests/
 \#*\#
 Makefile
 index.html
+!dist/index.html
