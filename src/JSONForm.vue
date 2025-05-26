@@ -24,7 +24,7 @@ export default defineComponent({
     return {
       handleDefaultsAjv,
       renderers: Object.freeze(renderers),
-      data: this.formData ? JSON.parse(this.formData) : {},
+      data: this.formData ? JSON.parse(this.formData) : null,
       schema: this.schemaData ? JSON.parse(this.schemaData) : null,
       uischema: this.layoutData ? JSON.parse(this.layoutData) : null,
     };
