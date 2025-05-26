@@ -33,9 +33,6 @@ export default defineComponent({
     "formData": function(newVal){
       try {
         this.data = JSON.parse(newVal);
-        if (this.schema) {
-          this.data = this.applyDefaults(this.data, this.schema);
-        }
       } catch(e) {
         console.error(`'${newVal}' is not valid JSON (supplied for 'form-data')`);
         this.data = null;
@@ -44,9 +41,6 @@ export default defineComponent({
     "schemaData": function(newVal){
       try {
         this.schema = JSON.parse(newVal);
-        if (this.data) {
-          this.data = this.applyDefaults(this.data, this.schema);
-        }
       } catch(e) {
         console.error(`'${newVal}' is not valid JSON (supplied for 'schema-data')`);
         this.schema = null;
@@ -63,29 +57,7 @@ export default defineComponent({
   },
   methods: {
     onChange(event) {
-      console.log("onChange ", event);
       this.data = event.data;
-    },
-    applyDefaults(data, schema) {
-      if (schema) {
-        console.log("=== APPLYING DEFAULTS ===");
-        console.log("Schema:", schema);
-        console.log("Input data:", data);
-
-        // Compile the schema with AJV
-        const validate = this.handleDefaultsAjv.compile(schema);
-
-        // Validate the data, AJV modifies the data in place
-        const isValid = validate(data);
-
-        if (!isValid) {
-          console.warn("Validation errors:", validate.errors);
-        }
-
-        console.log("Output data:", data);
-        return data; // Return the modified data
-      }
-      return data;
     }
   }
 });
