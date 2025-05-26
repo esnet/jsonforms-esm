@@ -1,11 +1,14 @@
 <script>
 import { JsonForms } from '@jsonforms/vue';
+import { createAjv } from "@jsonforms/core";
 import { vanillaRenderers } from '@jsonforms/vue-vanilla';
 import { defineComponent } from 'vue';
 
 const renderers = [
   ...vanillaRenderers,
 ];
+
+const handleDefaultsAjv = createAjv({ useDefaults: true });
 
 export default defineComponent({
   props: {
@@ -19,16 +22,20 @@ export default defineComponent({
   },
   data() {
     return {
+      handleDefaultsAjv,
       renderers: Object.freeze(renderers),
-      data: this.formData ? JSON.parse(this.formData) : null,
-      schema: this.schemaData ? JSON.parse(this.schemaData) : null,
-      uischema: this.layoutData ? JSON.parse(this.layoutData) : null,
+      data: {},
+      schema: null,
+      uischema: null,
     };
   },
   watch: {
     "formData": function(newVal){
       try {
         this.data = JSON.parse(newVal);
+        if (this.schema) {
+          this.data = this.applyDefaults(this.data, this.schema);
+        }
       } catch(e) {
         console.error(`'${newVal}' is not valid JSON (supplied for 'form-data')`);
         this.data = null;
@@ -37,6 +44,9 @@ export default defineComponent({
     "schemaData": function(newVal){
       try {
         this.schema = JSON.parse(newVal);
+        if (this.data) {
+          this.data = this.applyDefaults(this.data, this.schema);
+        }
       } catch(e) {
         console.error(`'${newVal}' is not valid JSON (supplied for 'schema-data')`);
         this.schema = null;
@@ -53,9 +63,31 @@ export default defineComponent({
   },
   methods: {
     onChange(event) {
+      console.log("onChange ", event);
       this.data = event.data;
     },
-  },
+    applyDefaults(data, schema) {
+      if (schema) {
+        console.log("=== APPLYING DEFAULTS ===");
+        console.log("Schema:", schema);
+        console.log("Input data:", data);
+
+        // Compile the schema with AJV
+        const validate = this.handleDefaultsAjv.compile(schema);
+
+        // Validate the data, AJV modifies the data in place
+        const isValid = validate(data);
+
+        if (!isValid) {
+          console.warn("Validation errors:", validate.errors);
+        }
+
+        console.log("Output data:", data);
+        return data; // Return the modified data
+      }
+      return data;
+    }
+  }
 });
 
 </script>
@@ -88,6 +120,7 @@ defineExpose({instance, serializeForm})
     :schema="schema"
     :uischema="uischema"
     :renderers="renderers"
+    :ajv="handleDefaultsAjv"
     @change="onChange"
   />
 </template>
