@@ -26,10 +26,6 @@ describe("Component json-form", () => {
         elem.setAttribute("form-data", JSON.stringify(formData));
         elem.setAttribute("schema-data", JSON.stringify(schemaData));
         elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
-
-        // elem.setAttribute("form-data", JSON.stringify(formData));
-        // elem.setAttribute("schema-json", JSON.stringify(schemaData));
-        // elem.setAttribute("ui-schema-json", JSON.stringify(uiSchemaData));
         document.body.appendChild(elem);
     });
 
@@ -78,6 +74,7 @@ describe("Component json-form", () => {
 
         elem.addEventListener("update", ()=>{
             let input = document.querySelector("input");
+            console.log("input value after empty object form-data:", input, input.value);
             expect(input.value).toBeFalsy();
             done();
         })
@@ -95,6 +92,9 @@ describe("Component json-form with empty form data", () => {
     beforeEach(function(){
         // Create the json-form element
         let elem = document.createElement("json-form");
+        elem.setAttribute("form-data", JSON.stringify(emptyFormData));
+        elem.setAttribute("schema-data", JSON.stringify(schemaData));
+        elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
         document.body.appendChild(elem);
     });
 
@@ -106,65 +106,30 @@ describe("Component json-form with empty form data", () => {
 
     it("should set default values if an empty object is passed", (done)=>{
         let elem = document.querySelector("json-form");
-        // elem.setAttribute("form-data", JSON.stringify(emptyFormData));
-        // elem.setAttribute("schema-json", JSON.stringify(schemaData));
-        // elem.setAttribute("ui-schema-json", JSON.stringify(uiSchemaData));
-        
-        elem.setAttribute("form-data", JSON.stringify(emptyFormData));
-        elem.setAttribute("schema-data", JSON.stringify(schemaData));
-        elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
 
-        // Define the event listener
-        const onUpdate = () => {
-            try {
-                const formData = JSON.parse(elem.serializeForm());
-                console.log("Form data after update:", formData);
+        const formData = JSON.parse(elem.serializeForm());
 
-                // Validate the defaults
-                expect(formData.a_number).toEqual(10);
-                expect(formData.another_property).toEqual("Test");
+        // Validate the defaults
+        expect(formData.a_number).toEqual(10);
+        expect(formData.another_property).toEqual("Test");
 
-                // Call done and remove the event listener
-                done();
-                elem.removeEventListener("update", onUpdate);
-            } catch (error) {
-                done.fail(error);
-            }
-        };
-
-        // Add the event listener
-        elem.addEventListener("update", onUpdate);
+        // Call done and remove the event listener
+        done();
     });
 
     it("should set default values for a partial filled object", (done)=>{
         let elem = document.querySelector("json-form");
-        // elem.setAttribute("form-data", JSON.stringify(emptyFormData));
-        // elem.setAttribute("schema-json", JSON.stringify(schemaData));
-        // elem.setAttribute("ui-schema-json", JSON.stringify(uiSchemaData));
-        
         elem.setAttribute("form-data", JSON.stringify(partialFormData));
-        elem.setAttribute("schema-data", JSON.stringify(schemaData));
-        elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
 
-        // Define the event listener
-        const onUpdate = () => {
-            try {
-                const formData = JSON.parse(elem.serializeForm());
-                console.log("Form data after update:", formData);
+        elem.addEventListener("update", () => {
+            const formData = JSON.parse(elem.serializeForm());
 
-                // Validate the defaults
-                expect(formData.a_number).toEqual(5);
-                expect(formData.another_property).toEqual("Test");
+            // Validate the defaults
+            expect(formData.a_number).toEqual(5);
+            expect(formData.another_property).toEqual("Test");
 
-                // Call done and remove the event listener
-                done();
-                elem.removeEventListener("update", onUpdate);
-            } catch (error) {
-                done.fail(error);
-            }
-        };
-
-        // Add the event listener
-        elem.addEventListener("update", onUpdate);
+            // Call done and remove the event listener
+            done();
+        });
     });
 });
