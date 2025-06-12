@@ -66,20 +66,6 @@ describe("Component json-form", () => {
     });
   });
 
-  // Q : This will set it to the default values,
-  // so even if the form data is empty, it will set it to the defaults
-  // it("should accept an empty object", (done) => {
-  //   let elem = document.querySelector("json-form");
-  //   elem.setAttribute("form-data", JSON.stringify({}));
-
-  //   elem.addEventListener("update", () => {
-  //     let input = document.querySelector("input");
-  //     console.log("input value after empty object form-data:", input, input.value);
-  //     expect(input.value).toBeFalsy();
-  //     done();
-  //   });
-  // });
-
   it("should produce valid JSON output", () => {
     let elem = document.querySelector("json-form");
     let obj = JSON.parse(elem.serializeForm());
@@ -90,7 +76,6 @@ describe("Component json-form", () => {
 
 describe("Component json-form with empty form data", () => {
   beforeEach(function () {
-    // Create the json-form element
     let elem = document.createElement("json-form");
     elem.setAttribute("form-data", JSON.stringify(emptyFormData));
     elem.setAttribute("schema-data", JSON.stringify(schemaData));
@@ -99,7 +84,6 @@ describe("Component json-form with empty form data", () => {
   });
 
   afterEach(function () {
-    // Clean up after each test
     const forms = document.querySelectorAll("json-form");
     forms.forEach((form) => form.remove());
   });
