@@ -1,6 +1,5 @@
 # JSONForms Vue WebComponent ESM
 
-
 ## Background and Wrapper Notes
 
 This Repo contains a Vue wrapper for the JSONForms library.
@@ -12,7 +11,6 @@ But! Using Vite as a build tool allows us to build the WebComponent and bundle i
 ECMAScript modules can be `import`ed directly into a browser, or included as a `<script>` tag.
 
 WebComponents are a web standard (a built-in part of JavaScript) that allows users to create user-defined HTML Tags that can be used in HTML `<like></like>` `<this></this>`.
-
 
 ## OK... Why bother?
 
@@ -28,11 +26,9 @@ This stems from a development philosophy:
   - avoid node, npm and friends
   - avoid transpiling
 
-
 ## Why would I want JSONForms?
 
 You probably already know if you're here, but JSONForms allows you to render a form based on a JSON Schema.
-
 
 ## OK, I'm sold, how do I use it?
 
@@ -60,7 +56,6 @@ Here's a complete code listing:
 ## Live demo
 
 https://unpkg.com/jsonforms-esm@3.5.1/dist/index.html
-
 
 ## What if I want to version pin or serve a copy? (Flat-file lifecycle management)
 
@@ -92,7 +87,6 @@ https://unpkg.com/jsonforms-esm@3.5.1/dist/index.html
   <link rel='stylesheet' type='text/css' href='lib/jsonforms.css'>
   <script src='lib/jsonforms.esm.js'></script>
   ```
-
 
 ## If you don't understand why you'd need this form element, you should probably just use jsonforms from the canonical upstream repo with real documentation: `https://jsonforms.io/`
 
