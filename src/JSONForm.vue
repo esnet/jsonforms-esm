@@ -1,11 +1,14 @@
 <script>
 import { JsonForms } from '@jsonforms/vue';
+import { createAjv } from "@jsonforms/core";
 import { vanillaRenderers } from '@jsonforms/vue-vanilla';
 import { defineComponent } from 'vue';
 
 const renderers = [
   ...vanillaRenderers,
 ];
+
+const handleDefaultsAjv = createAjv({ useDefaults: true });
 
 export default defineComponent({
   props: {
@@ -19,6 +22,7 @@ export default defineComponent({
   },
   data() {
     return {
+      handleDefaultsAjv,
       renderers: Object.freeze(renderers),
       data: this.formData ? JSON.parse(this.formData) : null,
       schema: this.schemaData ? JSON.parse(this.schemaData) : null,
@@ -54,8 +58,8 @@ export default defineComponent({
   methods: {
     onChange(event) {
       this.data = event.data;
-    },
-  },
+    }
+  }
 });
 
 </script>
@@ -88,6 +92,7 @@ defineExpose({instance, serializeForm})
     :schema="schema"
     :uischema="uischema"
     :renderers="renderers"
+    :ajv="handleDefaultsAjv"
     @change="onChange"
   />
 </template>
