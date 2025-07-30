@@ -106,4 +106,101 @@ describe("Component json-form with empty form data", () => {
       done();
     });
   });
+
+  it("should update the serialized form data when the form changes", (done)=>{
+    let elem = document.createElement("json-form");
+    document.body.appendChild(elem);
+    elem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    elem.setAttribute("schema-data", JSON.stringify(schemaData));
+    elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+    let listenerAdded = false;
+    elem.addEventListener("update", ()=>{
+      let input = elem.querySelector("input");
+      let valueBefore = elem.serializeForm();
+      input.setAttribute("value", 1000);
+      input.value = 1000;
+      let calls = 0;
+      let removed = false;
+      if(!listenerAdded){
+        elem.addEventListener("change", ()=>{
+          let valueAfter = elem.serializeForm();
+          calls++;
+          if(!removed){
+            document.body.removeChild(elem);
+            removed = true;
+          }
+          if(valueAfter != valueBefore){
+            expect(valueBefore).not.toEqual(valueAfter);
+            done();
+          }
+        })
+        listenerAdded = true;
+      }
+      let changeEvent = new Event("change", {bubbles: true});
+      input.dispatchEvent(changeEvent);
+    })
+  })
+
+  it("should support custom renderers for component overrides", (done)=>{
+    let newElem = document.createElement("json-form");
+
+    const HIGH_RANK = 3;
+    const LOWEST_RANK = -1;
+
+    function customRenderer(data, handleChange, path) {
+      // this mechanism is not ideal. It appears that we must create a
+      // vue component to bind to the DOM, and we can't do this with a
+      // 'normal' webcomponent. As such, we have to create the element
+      // within the vue section of the code, and here, we just pass in the
+      // tag name and properties. See AbstractSubcomponent.vue to
+      // see how the implementation ends up using `h()` (a vue builtin
+      // to render "html") to render the actual DOM elements.
+      let elemToReturn = { "tag": "dummy-custom-component", "props": {} }
+      elemToReturn.props.value = data;
+      elemToReturn.props.onChange = function(event){
+        let target = event.target
+        if(event.target.tagName != "INPUT"){
+          target = target.querySelector("input");
+        }
+        return handleChange(path, parseInt(target.getAttribute("value")));
+      };
+      return elemToReturn
+    }
+
+    function customTester(uischema, schema, context){
+      if(!uischema.scope) return LOWEST_RANK;
+      if(uischema.scope.endsWith("a_number")){
+        return HIGH_RANK;
+      }
+      return LOWEST_RANK;
+    }
+
+    let initialRenderComplete = false;
+    let valueUpdateRenderComplete = false;
+    newElem.addEventListener("update", () => {
+      let customElements = document.querySelectorAll("dummy-custom-component");
+      if(!initialRenderComplete){
+        expect(customElements.length).toBeGreaterThan(0);
+        let inputToChange = document.querySelector("dummy-custom-component > input");
+        inputToChange.setAttribute("value", 1000);
+        var changeEvent = new Event('change', { bubbles: true });
+        inputToChange.dispatchEvent(changeEvent);
+        // tick the bool so we don't call 'done' again (or execute this if block)
+        initialRenderComplete = true;
+      }
+    });
+    newElem.addEventListener("change", ()=>{
+      if(initialRenderComplete && !valueUpdateRenderComplete){
+        let formData = JSON.parse(newElem.serializeForm());
+        expect(formData.a_number).toEqual(1000);
+        valueUpdateRenderComplete = true;
+        done();
+      }
+    });
+    document.body.appendChild(newElem);
+    newElem.appendRenderer({ tester: customTester, renderer: customRenderer });
+    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    newElem.setAttribute("schema-data", JSON.stringify(schemaData));
+    newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+  })
 });

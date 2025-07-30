@@ -3,6 +3,7 @@ import { JsonForms } from '@jsonforms/vue';
 import { createAjv } from "@jsonforms/core";
 import { vanillaRenderers } from '@jsonforms/vue-vanilla';
 import { defineComponent } from 'vue';
+import { component } from "./AbstractSubcomponent.vue";
 
 const renderers = [
   ...vanillaRenderers,
@@ -16,14 +17,13 @@ export default defineComponent({
     "schemaData": String,
     "layoutData": String,
   },
-  ref: ['test'],
   components: {
     JsonForms,
   },
   data() {
     return {
       handleDefaultsAjv,
-      renderers: Object.freeze(renderers),
+      renderers: renderers,
       data: this.formData ? JSON.parse(this.formData) : null,
       schema: this.schemaData ? JSON.parse(this.schemaData) : null,
       uischema: this.layoutData ? JSON.parse(this.layoutData) : null,
@@ -57,7 +57,17 @@ export default defineComponent({
   },
   methods: {
     onChange(event) {
-      this.data = event.data;
+      if(!event.data) return
+      Object.keys(event?.data).forEach((key)=>{
+        let changed = false;
+        if(event.data.hasOwnProperty(key) && this.data[key] != event.data[key]){
+          this.data[key] = event.data[key];
+          changed = true;
+        }
+        if(changed){
+          this.$emit("change")
+        }
+      })
     }
   }
 });
@@ -78,11 +88,20 @@ onUpdated(async ()=>{
 
 // expose e.g. document.querySelector("json-form").instance
 const instance = computed(()=>{ return elem?.value?.data })
-// expose e.g. document.querySelector("json-form").
-const serializeForm = computed(()=>{
-  return ()=>{ return JSON.stringify(elem.value?.data); }
-})
-defineExpose({instance, serializeForm})
+// expose e.g. document.querySelector("json-form").serializeForm()
+const serializeForm = ()=>{ return JSON.stringify(elem.value?.data); }
+// expose a function to allow users to alter the renderer chain
+const appendRenderer = (newRenderer)=>{
+  if(elem?.value?.renderers){
+    let renderer = {
+      renderer: component(newRenderer),
+      tester: newRenderer.tester
+    }
+    elem.value.renderers.push(renderer);
+  }
+}
+
+defineExpose({instance, serializeForm, appendRenderer})
 </script>
 
 <template>

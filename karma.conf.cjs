@@ -12,7 +12,7 @@ module.exports = function( config ) {
         },
         files: [
             // tests
-            { pattern: "tests/module.spec.js", type: "module" },
+            { pattern: "tests/*.js", type: "module" },
             // files tests rely on
             { pattern: "dist/**/*.js", type: "module", included: true, served: true },
         ],
