@@ -1,7 +1,7 @@
 {
     "name": "jsonforms-esm",
     "type": "module",
-    "version": "3.5.1-beta6",
+    "version": "3.5.1-beta7",
     "main": "dist/jsonforms.esm.js",
     "scripts": {
         "dev": "vite",
