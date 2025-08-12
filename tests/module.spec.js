@@ -22,6 +22,38 @@ var uiSchemaData = {
   ],
 };
 
+const HIGH_RANK = 3;
+const LOWEST_RANK = -1;
+
+function customRenderer(data, handleChange, path) {
+  // this mechanism is not ideal. It appears that we must create a
+  // vue component to bind to the DOM, and we can't do this with a
+  // 'normal' webcomponent. As such, we have to create the element
+  // within the vue section of the code, and here, we just pass in the
+  // tag name and properties. See AbstractSubcomponent.vue to
+  // see how the implementation ends up using `h()` (a vue builtin
+  // to render "html") to render the actual DOM elements.
+  let elemToReturn = { "tag": "dummy-custom-component", "props": {} }
+  elemToReturn.props.value = data;
+  elemToReturn.props.onChange = function(event){
+    let target = event.target
+    if(event.target.tagName != "INPUT"){
+      target = target.querySelector("input");
+    }
+    return handleChange(path, parseInt(target.getAttribute("value")));
+  };
+  return elemToReturn
+}
+
+function customTester(uischema, schema, context){
+  if(!uischema.scope) return LOWEST_RANK;
+  if(uischema.scope.endsWith("a_number")){
+    return HIGH_RANK;
+  }
+  return LOWEST_RANK;
+}
+
+
 describe("Component json-form", () => {
   beforeEach(function () {
     let elem = document.createElement("json-form");
@@ -141,47 +173,76 @@ describe("Component json-form with empty form data", () => {
     })
   })
 
-  it("should support custom renderers for component overrides", (done)=>{
+  it("should fire a signal to allow users to interact with the DOM node before it is rendered", (done)=>{
+    let called = false
+    const listener = (ev)=>{
+      if(!! called) return
+      called = true;
+      expect(ev.detail[0].target.appendRenderer).toBeDefined();
+      let output = document.removeEventListener("json-form:beforeMount", listener);
+      done();
+    }
+    document.addEventListener("json-form:beforeMount", listener)
+    let newElem = document.createElement("json-form");
+    document.body.appendChild(newElem);
+  })
+
+  it("should fire a signal to allow users to interact wit the DOM node after it is rendered", (done)=>{
+    let called = false
+    const listener = (ev)=>{
+      if(!! called) return
+      called = true;
+      expect(ev.detail[0].target.appendRenderer).toBeDefined();
+      let output = document.removeEventListener("json-form:mounted", listener);
+      done();
+    }
+    document.addEventListener("json-form:mounted", listener)
+    let newElem = document.createElement("json-form");
+    document.body.appendChild(newElem);
+
+  })
+
+  it("should fire a signal that allows users to attach a custom renderer before the first render", (done)=>{
+    let called = false
+    const beforeMountListener = (ev)=>{
+      if(!! called) return
+      expect(ev.detail[0].target.appendRenderer).toBeDefined();
+      let options = { tester: customTester, renderer: customRenderer };
+      ev.detail[0].target.appendRenderer(options);
+      let output = document.removeEventListener("json-form:beforeMount", beforeMountListener);
+    }
+    document.addEventListener("json-form:beforeMount", beforeMountListener)
+
     let newElem = document.createElement("json-form");
 
-    const HIGH_RANK = 3;
-    const LOWEST_RANK = -1;
-
-    function customRenderer(data, handleChange, path) {
-      // this mechanism is not ideal. It appears that we must create a
-      // vue component to bind to the DOM, and we can't do this with a
-      // 'normal' webcomponent. As such, we have to create the element
-      // within the vue section of the code, and here, we just pass in the
-      // tag name and properties. See AbstractSubcomponent.vue to
-      // see how the implementation ends up using `h()` (a vue builtin
-      // to render "html") to render the actual DOM elements.
-      let elemToReturn = { "tag": "dummy-custom-component", "props": {} }
-      elemToReturn.props.value = data;
-      elemToReturn.props.onChange = function(event){
-        let target = event.target
-        if(event.target.tagName != "INPUT"){
-          target = target.querySelector("input");
-        }
-        return handleChange(path, parseInt(target.getAttribute("value")));
-      };
-      return elemToReturn
+    const updatedListener = ()=>{
+      if(!!called) return
+      called = true;
+      let customElements = document.querySelectorAll("dummy-custom-component");
+      expect(customElements.length).toBeGreaterThan(0);
+      document.body.removeChild(newElem);
+      document.removeEventListener("json-form:updated", updatedListener);
+      done();
     }
+    newElem.addEventListener("json-form:updated", updatedListener)
 
-    function customTester(uischema, schema, context){
-      if(!uischema.scope) return LOWEST_RANK;
-      if(uischema.scope.endsWith("a_number")){
-        return HIGH_RANK;
-      }
-      return LOWEST_RANK;
-    }
+    document.body.appendChild(newElem);
+    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    newElem.setAttribute("schema-data", JSON.stringify(schemaData));
+    newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+  })
+
+  it("should support custom renderers for component overrides", (done)=>{
+    let newElem = document.createElement("json-form");
 
     let initialRenderComplete = false;
     let valueUpdateRenderComplete = false;
     newElem.addEventListener("update", () => {
-      let customElements = document.querySelectorAll("dummy-custom-component");
+      let customElements = newElem.querySelectorAll("dummy-custom-component");
       if(!initialRenderComplete){
         expect(customElements.length).toBeGreaterThan(0);
-        let inputToChange = document.querySelector("dummy-custom-component > input");
+        let inputToChange = newElem.querySelector("dummy-custom-component > input");
+
         inputToChange.setAttribute("value", 1000);
         var changeEvent = new Event('change', { bubbles: true });
         inputToChange.dispatchEvent(changeEvent);
@@ -189,11 +250,12 @@ describe("Component json-form with empty form data", () => {
         initialRenderComplete = true;
       }
     });
-    newElem.addEventListener("change", ()=>{
-      if(initialRenderComplete && !valueUpdateRenderComplete){
+    newElem.addEventListener("change", (ev)=>{
+      if(initialRenderComplete && !valueUpdateRenderComplete && ev.target.tagName == "JSON-FORM"){
         let formData = JSON.parse(newElem.serializeForm());
         expect(formData.a_number).toEqual(1000);
         valueUpdateRenderComplete = true;
+        document.body.removeChild(newElem);
         done();
       }
     });

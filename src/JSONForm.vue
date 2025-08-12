@@ -68,15 +68,46 @@ export default defineComponent({
           this.$emit("change")
         }
       })
+    },
+    appendRenderer(newRenderer){
+        if(this.renderers){
+          let renderer = {
+            renderer: component(newRenderer),
+            tester: newRenderer.tester
+          }
+          this.renderers.push(renderer);
+        }
+    },
+    serializeForm(){
+      return JSON.stringify(this.data);
     }
-  }
+  },
+  beforeMount(){
+    this.$emit("json-form:beforeMount", { target: this, bubbles: true });
+  },
+  mounted(){
+    this.$emit("json-form:mounted", { target: this, bubbles: true });
+  },
+  beforeUpdate(){
+    this.$emit("json-form:beforeUpdate", { target: this, bubbles: true });
+  },
+  updated(){
+    this.$emit("json-form:updated", { target: this, bubbles: true });
+  },
+  expose: ['serializeForm', 'appendRenderer']
 });
 
 </script>
 <script setup>
 import { onUpdated, nextTick, defineExpose, ref, computed } from 'vue';
 const elem = ref(null);
-const emit = defineEmits(['update', 'change'])
+const emit = defineEmits([
+  'update',
+  'change',
+  'json-form:beforeMount',
+  'json-form:mounted',
+  'json-form:beforeUpdate',
+  'json-form:updated'])
 
 // set up a JS signal that we'll emit on update
 // we can listen for this outside the element
@@ -89,19 +120,15 @@ onUpdated(async ()=>{
 // expose e.g. document.querySelector("json-form").instance
 const instance = computed(()=>{ return elem?.value?.data })
 // expose e.g. document.querySelector("json-form").serializeForm()
-const serializeForm = ()=>{ return JSON.stringify(elem.value?.data); }
+const serializeForm = ()=>{ 
+  return elem?.value?.serializeForm();
+}
 // expose a function to allow users to alter the renderer chain
 const appendRenderer = (newRenderer)=>{
-  if(elem?.value?.renderers){
-    let renderer = {
-      renderer: component(newRenderer),
-      tester: newRenderer.tester
-    }
-    elem.value.renderers.push(renderer);
-  }
+  elem.value.appendRenderer(newRenderer);
 }
 
-defineExpose({instance, serializeForm, appendRenderer})
+defineExpose({instance, serializeForm, appendRenderer })
 </script>
 
 <template>
