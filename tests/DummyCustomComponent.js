@@ -3,7 +3,6 @@ export class DummyCustomComponent extends HTMLElement {
     static observedAttributes = ["value"];
 
     attributeChangedCallback(name, oldValue, newValue){
-        console.log(`Attribute has changed. '${name}' is now: '${newValue}'`);
         this[name] = newValue;
         this.render();
     }

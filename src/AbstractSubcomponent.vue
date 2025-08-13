@@ -10,7 +10,7 @@ export function component(newRenderer){
         let p = props;
         return  () => {
           const {tag, props} = newRenderer.renderer(
-                controlProps?.value,
+                controlProps?.control?.value?.data,
                 controlProps?.handleChange,
                 controlProps?.control?.value?.path
             );

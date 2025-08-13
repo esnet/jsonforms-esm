@@ -265,4 +265,26 @@ describe("Component json-form with empty form data", () => {
     newElem.setAttribute("schema-data", JSON.stringify(schemaData));
     newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
   })
+
+  it("should correctly set values in custom widgets when the form is rendered", (done)=>{
+    let newElem = document.createElement("json-form");
+
+    let initialRenderComplete = false;
+    let valueUpdateRenderComplete = false;
+    let called = false;
+    newElem.addEventListener("update", () => {
+      let customElements = newElem.querySelectorAll("dummy-custom-component");
+      if(!!called) return
+      called = true
+      expect(customElements[0].value).toEqual(10)
+      expect(customElements[0].getAttribute("value")).toEqual("10")
+      done();
+    });
+    document.body.appendChild(newElem);
+    newElem.appendRenderer({ tester: customTester, renderer: customRenderer });
+    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    newElem.setAttribute("schema-data", JSON.stringify(schemaData));
+    newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+
+  })
 });
