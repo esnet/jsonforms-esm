@@ -5,10 +5,6 @@ import { vanillaRenderers } from '@jsonforms/vue-vanilla';
 import { defineComponent } from 'vue';
 import { component } from "./AbstractSubcomponent.vue";
 
-const renderers = [
-  ...vanillaRenderers,
-];
-
 const handleDefaultsAjv = createAjv({ useDefaults: true });
 
 export default defineComponent({
@@ -23,7 +19,7 @@ export default defineComponent({
   data() {
     return {
       handleDefaultsAjv,
-      renderers: renderers,
+      renderers: [...vanillaRenderers],
       data: this.formData ? JSON.parse(this.formData) : null,
       schema: this.schemaData ? JSON.parse(this.schemaData) : null,
       uischema: this.layoutData ? JSON.parse(this.layoutData) : null,
@@ -80,7 +76,7 @@ export default defineComponent({
     },
     serializeForm(){
       return JSON.stringify(this.data);
-    }
+    },
   },
   beforeMount(){
     this.$emit("json-form:beforeMount", { target: this, bubbles: true });

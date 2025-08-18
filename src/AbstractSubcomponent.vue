@@ -12,8 +12,12 @@ export function component(newRenderer){
           const {tag, props} = newRenderer.renderer(
                 controlProps?.control?.value?.data,
                 controlProps?.handleChange,
-                controlProps?.control?.value?.path
+                controlProps?.control?.value?.path,
+                controlProps?.control?.value
             );
+          if(tag == "new-tag"){
+              console.log("tag", tag, "props", props);
+          }
           let output = h(tag, props, []);
           return output
         }

@@ -153,7 +153,7 @@ describe("Component json-form with empty form data", () => {
       input.value = 1000;
       let calls = 0;
       let removed = false;
-      if(!listenerAdded){
+       if(!listenerAdded){
         elem.addEventListener("change", ()=>{
           let valueAfter = elem.serializeForm();
           calls++;
@@ -180,6 +180,7 @@ describe("Component json-form with empty form data", () => {
       called = true;
       expect(ev.detail[0].target.appendRenderer).toBeDefined();
       let output = document.removeEventListener("json-form:beforeMount", listener);
+      newElem.remove();
       done();
     }
     document.addEventListener("json-form:beforeMount", listener)
@@ -187,13 +188,14 @@ describe("Component json-form with empty form data", () => {
     document.body.appendChild(newElem);
   })
 
-  it("should fire a signal to allow users to interact wit the DOM node after it is rendered", (done)=>{
+  it("should fire a signal to allow users to interact with the DOM node after it is rendered", (done)=>{
     let called = false
     const listener = (ev)=>{
       if(!! called) return
       called = true;
       expect(ev.detail[0].target.appendRenderer).toBeDefined();
       let output = document.removeEventListener("json-form:mounted", listener);
+      newElem.remove();
       done();
     }
     document.addEventListener("json-form:mounted", listener)
@@ -204,10 +206,16 @@ describe("Component json-form with empty form data", () => {
 
   it("should fire a signal that allows users to attach a custom renderer before the first render", (done)=>{
     let called = false
+
+
+    function specialRenderer(data, handleChange, path) {
+      let elemToReturn = { "tag": "dummy-custom-component", "props": {} }
+      return elemToReturn
+    }
+
     const beforeMountListener = (ev)=>{
-      if(!! called) return
       expect(ev.detail[0].target.appendRenderer).toBeDefined();
-      let options = { tester: customTester, renderer: customRenderer };
+      let options = { tester: customTester, renderer: specialRenderer };
       ev.detail[0].target.appendRenderer(options);
       let output = document.removeEventListener("json-form:beforeMount", beforeMountListener);
     }
@@ -216,11 +224,15 @@ describe("Component json-form with empty form data", () => {
     let newElem = document.createElement("json-form");
 
     const updatedListener = ()=>{
+      let customElements = newElem.querySelectorAll("q");
+      customElements = newElem.querySelectorAll("dummy-custom-component");
       if(!!called) return
+      // in some cases, the customElements aren't available on first
+      // .update() call. If we don't see them yet, return.
+      if(!customElements.length) return
       called = true;
-      let customElements = document.querySelectorAll("dummy-custom-component");
       expect(customElements.length).toBeGreaterThan(0);
-      document.body.removeChild(newElem);
+      newElem.remove();
       document.removeEventListener("json-form:updated", updatedListener);
       done();
     }
@@ -255,7 +267,7 @@ describe("Component json-form with empty form data", () => {
         let formData = JSON.parse(newElem.serializeForm());
         expect(formData.a_number).toEqual(1000);
         valueUpdateRenderComplete = true;
-        document.body.removeChild(newElem);
+        newElem.remove();
         done();
       }
     });
@@ -278,6 +290,7 @@ describe("Component json-form with empty form data", () => {
       called = true
       expect(customElements[0].value).toEqual(10)
       expect(customElements[0].getAttribute("value")).toEqual("10")
+      newElem.remove();
       done();
     });
     document.body.appendChild(newElem);
@@ -286,5 +299,69 @@ describe("Component json-form with empty form data", () => {
     newElem.setAttribute("schema-data", JSON.stringify(schemaData));
     newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
 
+  })
+
+  it("should provide the full schema definition when a custom widget is rendered (this behavior differs from JSON Forms)", (done)=>{
+    let newElem = document.createElement("json-form");
+
+    let called = false;
+    let renderer = function(data, handleChange, path, schema){
+      const output = { "tag": "dummy-custom-component", "props": {} };
+      if(!!called) return output;
+      called = true;
+      expect(data).toBeDefined();
+      expect(handleChange).toBeDefined();
+      expect(path).toBeDefined();
+      expect(schema).toBeDefined();
+      done()
+      return output;
+    }
+    document.body.appendChild(newElem);
+    newElem.appendRenderer({ tester: customTester, renderer: renderer });
+    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    newElem.setAttribute("schema-data", JSON.stringify(schemaData));
+    newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+
+  })
+
+  it("should allow set a default properly, even if the field name contains a hyphen", ()=>{
+    let newElem = document.createElement("json-form");
+
+    let hyphenDefaultData = {
+      properties: {
+        "a-number": { type: "number", default: 10 },
+        "a-bool": { type: "boolean", default: true },
+        another_property: { type: "string", default: "Test" },
+      },
+      required: ["a-number", "a-bool"],
+    }
+
+    var hyphenUISchemaData = {
+      type: "VerticalLayout",
+      elements: [
+        {
+          type: "Control",
+          scope: "#/properties/a-number",
+        },
+        {
+          type: "Control",
+          scope: "#/properties/a-bool",
+        },
+        {
+          type: "Control",
+          scope: "#/properties/another_property",
+        },
+      ],
+    };
+
+    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
+    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
+    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    document.body.appendChild(newElem);
+
+    let numberInput = newElem.querySelector("input[type='number']");
+    expect(numberInput.value).toEqual('10');
+    let boolInput = newElem.querySelector("input[type='checkbox']");
+    expect(boolInput.value).toEqual("on")
   })
 });
