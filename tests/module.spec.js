@@ -22,6 +22,34 @@ var uiSchemaData = {
   ],
 };
 
+const hyphenDefaultData = {
+  properties: {
+    "a-number": { type: "number", default: 10 },
+    "a-bool": { type: "boolean", default: true },
+    another_property: { type: "string", default: "Test" },
+  },
+  required: ["a-number", "a-bool"],
+}
+
+const hyphenUISchemaData = {
+  type: "VerticalLayout",
+  elements: [
+    {
+      type: "Control",
+      scope: "#/properties/a-number",
+    },
+    {
+      type: "Control",
+      scope: "#/properties/a-bool",
+    },
+    {
+      type: "Control",
+      scope: "#/properties/another_property",
+    },
+  ],
+};
+
+
 const HIGH_RANK = 3;
 const LOWEST_RANK = -1;
 
@@ -327,33 +355,6 @@ describe("Component json-form with empty form data", () => {
   it("should allow set a default properly, even if the field name contains a hyphen", ()=>{
     let newElem = document.createElement("json-form");
 
-    let hyphenDefaultData = {
-      properties: {
-        "a-number": { type: "number", default: 10 },
-        "a-bool": { type: "boolean", default: true },
-        another_property: { type: "string", default: "Test" },
-      },
-      required: ["a-number", "a-bool"],
-    }
-
-    var hyphenUISchemaData = {
-      type: "VerticalLayout",
-      elements: [
-        {
-          type: "Control",
-          scope: "#/properties/a-number",
-        },
-        {
-          type: "Control",
-          scope: "#/properties/a-bool",
-        },
-        {
-          type: "Control",
-          scope: "#/properties/another_property",
-        },
-      ],
-    };
-
     newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
     newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
     newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
@@ -363,5 +364,31 @@ describe("Component json-form with empty form data", () => {
     expect(numberInput.value).toEqual('10');
     let boolInput = newElem.querySelector("input[type='checkbox']");
     expect(boolInput.value).toEqual("on")
+  })
+
+  it("should allow a readonly parameter", (done)=>{
+    let newElem = document.createElement("json-form");
+
+    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
+    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
+    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    newElem.setAttribute("readonly", "true");
+    document.body.appendChild(newElem);
+
+    let input = newElem.querySelector("input");
+    expect(input.hasAttribute("disabled")).toEqual(true);
+
+
+    newElem = document.createElement("json-form");
+
+    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
+    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
+    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    document.body.appendChild(newElem);
+
+    input = newElem.querySelector("input");
+    expect(input.hasAttribute("disabled")).toEqual(false);
+
+    done();
   })
 });

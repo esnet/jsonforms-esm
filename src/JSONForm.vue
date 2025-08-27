@@ -12,6 +12,7 @@ export default defineComponent({
     "formData": String,
     "schemaData": String,
     "layoutData": String,
+    "readonly": Boolean,
   },
   components: {
     JsonForms,
@@ -23,6 +24,7 @@ export default defineComponent({
       data: this.formData ? JSON.parse(this.formData) : null,
       schema: this.schemaData ? JSON.parse(this.schemaData) : null,
       uischema: this.layoutData ? JSON.parse(this.layoutData) : null,
+      readonly: this.readonly ? true : false,
     };
   },
   watch: {
@@ -135,6 +137,7 @@ defineExpose({instance, serializeForm, appendRenderer })
     :uischema="uischema"
     :renderers="renderers"
     :ajv="handleDefaultsAjv"
+    :readonly="readonly"
     @change="onChange"
   />
 </template>
