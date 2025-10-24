@@ -16,26 +16,31 @@
       >
     </noscript>
 
-    <json-form
-      form-data='{"a_number": 5, "another_property": "Here is a value!"}'
-      schema-data='{ 
-        "properties": {
-          "a_number": { "type": "number" },
-          "another_property": { "type": "string" }
-        }
-      }'
-      layout-data='{
-        "type": "VerticalLayout",
-        "elements": [{
-            "type": "Control",
-            "scope": "#/properties/a_number"
-        },
-        {
-            "type": "Control",
-            "scope": "#/properties/another_property"
-        }]
-      }'
-    ></json-form>
+    <form action='' onsubmit="return document.querySelector('#test-json-form')?.validate()">
+      <json-form
+        id='test-json-form'
+        form-data='{"a_number": 5, "another_property": "Here is a value!"}'
+        schema-data='{
+          "properties": {
+            "a_number": { "type": "integer", "minimum": 1 },
+            "another_property": { "type": "string", "pattern": "^[0-9a-z]+$" }
+          },
+          "required": ["another_property", "a_number"]
+        }'
+        layout-data='{
+          "type": "VerticalLayout",
+          "elements": [{
+              "type": "Control",
+              "scope": "#/properties/a_number"
+          },
+          {
+              "type": "Control",
+              "scope": "#/properties/another_property"
+          }]
+        }'
+      ></json-form>
+      <button type='submit'>Submit Form (Test Validation)</button>
+    </form>
 
     <script>
       function changeFormData(){
@@ -94,7 +99,6 @@
           console.log("Update Listener:", event.target.instance);
         })
     </script>
-
 
   </body>
 </html>

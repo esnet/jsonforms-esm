@@ -24,7 +24,7 @@ var uiSchemaData = {
 
 const hyphenDefaultData = {
   properties: {
-    "a-number": { type: "number", default: 10 },
+    "a-number": { type: "integer", default: 10, maximum: 100 },
     "a-bool": { type: "boolean", default: true },
     another_property: { type: "string", default: "Test" },
   },
@@ -390,5 +390,33 @@ describe("Component json-form with empty form data", () => {
     expect(input.hasAttribute("disabled")).toEqual(false);
 
     done();
+  })
+
+  it("should have a .validate() method that returns true if form valid, false otherwise.", (done)=>{
+    let newElem = document.createElement("json-form");
+
+    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
+    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
+    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    newElem.setAttribute("id", "testing")
+
+    let called = false;
+    newElem.addEventListener("change", () => {
+      let isValid = newElem.validate();
+      if(!!called || !!isValid) return
+      expect(isValid).toEqual(false);
+      called = true;
+      done();
+    });
+
+    document.body.appendChild(newElem);
+
+    let inputToChange = newElem.querySelector("input");
+    inputToChange.setAttribute("value", 1000);
+    inputToChange.value = 1000;
+    var changeEvent = new Event('change', { bubbles: true });
+    inputToChange.dispatchEvent(changeEvent);
+
+    expect(document.querySelector("#testing").validate).toBeDefined();
   })
 });

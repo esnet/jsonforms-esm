@@ -25,6 +25,7 @@ export default defineComponent({
       schema: this.schemaData ? JSON.parse(this.schemaData) : null,
       uischema: this.layoutData ? JSON.parse(this.layoutData) : null,
       readonly: this.readonly ? true : false,
+      formErrors: []
     };
   },
   watch: {
@@ -58,6 +59,12 @@ export default defineComponent({
       if(!event.data) return
       Object.keys(event?.data).forEach((key)=>{
         let changed = false;
+        // clear array
+        this.formErrors.splice(0, this.formErrors.length);
+        // enqueue the errors so we can validate
+        event.errors.forEach((error)=>{
+          this.formErrors.push(error);
+        });
         if(event.data.hasOwnProperty(key) && this.data[key] != event.data[key]){
           this.data[key] = event.data[key];
           changed = true;
@@ -79,6 +86,9 @@ export default defineComponent({
     serializeForm(){
       return JSON.stringify(this.data);
     },
+    validate(){
+      return this.formErrors.length == 0;
+    }
   },
   beforeMount(){
     this.$emit("json-form:beforeMount", { target: this, bubbles: true });
@@ -92,7 +102,7 @@ export default defineComponent({
   updated(){
     this.$emit("json-form:updated", { target: this, bubbles: true });
   },
-  expose: ['serializeForm', 'appendRenderer']
+  expose: ['serializeForm', 'appendRenderer', 'validate']
 });
 
 </script>
@@ -121,12 +131,16 @@ const instance = computed(()=>{ return elem?.value?.data })
 const serializeForm = ()=>{ 
   return elem?.value?.serializeForm();
 }
+// expose a validation function
+const validate = ()=>{
+  return elem?.value?.validate();
+}
 // expose a function to allow users to alter the renderer chain
 const appendRenderer = (newRenderer)=>{
   elem.value.appendRenderer(newRenderer);
 }
 
-defineExpose({instance, serializeForm, appendRenderer })
+defineExpose({instance, serializeForm, appendRenderer, validate })
 </script>
 
 <template>
