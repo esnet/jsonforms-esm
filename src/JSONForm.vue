@@ -88,7 +88,10 @@ export default defineComponent({
     },
     validate(){
       return this.formErrors.length == 0;
-    }
+    },
+    errors(){
+      return JSON.parse(JSON.stringify(this.formErrors));
+    },
   },
   beforeMount(){
     this.$emit("json-form:beforeMount", { target: this, bubbles: true });
@@ -102,7 +105,7 @@ export default defineComponent({
   updated(){
     this.$emit("json-form:updated", { target: this, bubbles: true });
   },
-  expose: ['serializeForm', 'appendRenderer', 'validate']
+  expose: ['serializeForm', 'appendRenderer', 'validate', 'errors']
 });
 
 </script>
@@ -135,12 +138,16 @@ const serializeForm = ()=>{
 const validate = ()=>{
   return elem?.value?.validate();
 }
+// expose a function that returns a list of errors
+const errors = ()=>{
+  return elem?.value?.errors();
+}
 // expose a function to allow users to alter the renderer chain
 const appendRenderer = (newRenderer)=>{
   elem.value.appendRenderer(newRenderer);
 }
 
-defineExpose({instance, serializeForm, appendRenderer, validate })
+defineExpose({instance, serializeForm, appendRenderer, validate, errors })
 </script>
 
 <template>

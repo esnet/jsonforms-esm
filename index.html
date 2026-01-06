@@ -93,12 +93,20 @@
         }
     </script>
     <button onclick='serializeForm()'>Serialize Form Data to Console</button>
+    <br>
     <script>
         let elem = document.querySelector("json-form");
         elem.addEventListener("update", function(event){
           console.log("Update Listener:", event.target.instance);
         })
     </script>
+    <script>
+        function errors(){
+          let elem = document.querySelector("json-form");
+          console.log(elem.errors());
+        }
+    </script>
+    <button onclick='errors()'>Error Data to Console</button>
 
   </body>
 </html>

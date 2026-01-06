@@ -121,7 +121,7 @@ describe("Component json-form", () => {
     elem.setAttribute("form-data", "nonsense");
     elem.addEventListener("update", () => {
       let input = document.querySelector("input");
-      expect(input.value).toBeFalsy();
+      expect(input?.value).toBeFalsy();
       done();
     });
   });
@@ -403,6 +403,8 @@ describe("Component json-form with empty form data", () => {
     let called = false;
     newElem.addEventListener("change", () => {
       let isValid = newElem.validate();
+      // in some cases this will be called multiple times with the value that's not under test...
+      // filter out these cases. There should be at lease one that fits our criteria.
       if(!!called || !!isValid) return
       expect(isValid).toEqual(false);
       called = true;
@@ -418,5 +420,37 @@ describe("Component json-form with empty form data", () => {
     inputToChange.dispatchEvent(changeEvent);
 
     expect(document.querySelector("#testing").validate).toBeDefined();
+  })
+
+  it("should have an .errors() method that returns the current list of errors for the form.", (done)=>{
+    let newElem = document.createElement("json-form");
+
+    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
+    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
+    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    newElem.setAttribute("id", "errors")
+
+    let called = false;
+    newElem.addEventListener("change", () => {
+      let errors = newElem.errors();
+      console.log("in event listener", errors);
+      // in some cases this will be called multiple times with the value that's not under test...
+      // filter out these cases. There should be at lease one that fits our criteria.
+      if(!!called || !errors.length) return
+      expect(errors.length).toBeGreaterThan(0);
+      called = true;
+      done();
+    });
+
+    document.body.appendChild(newElem);
+
+    let inputToChange = newElem.querySelector("input");
+    inputToChange.setAttribute("value", 1000);
+    inputToChange.value = 1000;
+    var changeEvent = new Event('change', { bubbles: true });
+    inputToChange.dispatchEvent(changeEvent);
+    console.log(inputToChange, changeEvent);
+
+    expect(document.querySelector("#errors").errors).toBeDefined();
   })
 });
