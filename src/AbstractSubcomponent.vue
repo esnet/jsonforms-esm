@@ -15,9 +15,6 @@ export function component(newRenderer){
                 controlProps?.control?.value?.path,
                 controlProps?.control?.value
             );
-          if(tag == "new-tag"){
-              console.log("tag", tag, "props", props);
-          }
           let output = h(tag, props, []);
           return output
         }
