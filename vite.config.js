@@ -12,6 +12,7 @@ export default defineConfig({
         "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),
     },
     build: {
+	sourcemap: true,
        lib: {
           entry: resolve(__dirname, 'src/main.js'),
           fileName: 'jsonforms',
