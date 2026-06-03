@@ -706,6 +706,42 @@ describe("x-invalid-message", () => {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
 
+  it("supports the standard errorMessage keyword (ajv-errors)", (done) => {
+    const schema = {
+      properties: {
+        slip: {
+          type: "string",
+          pattern: "^P",
+          errorMessage: "'%s' is not a valid ISO 8601 duration.",
+          default: "PT5M",
+        },
+      },
+    };
+    const uiSchema = {
+      type: "VerticalLayout",
+      elements: [{ type: "Control", scope: "#/properties/slip" }],
+    };
+    const elem = makeForm({
+      "form-data": JSON.stringify({ slip: "PT5M" }),
+      "schema-data": JSON.stringify(schema),
+      "layout-data": JSON.stringify(uiSchema),
+    });
+
+    let called = false;
+    elem.addEventListener("change", () => {
+      if (called) return;
+      const errs = elem.errors();
+      if (!errs.length) return;
+      called = true;
+      expect(errs[0].message).toEqual("'notAnISO' is not a valid ISO 8601 duration.");
+      done();
+    });
+
+    const input = elem.querySelector("input");
+    input.value = "notAnISO";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
   it("falls back to the default AJV message when x-invalid-message is absent", (done) => {
     const elem = makeForm({
       "form-data": JSON.stringify(emptyFormData),

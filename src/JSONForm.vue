@@ -4,15 +4,23 @@ import { JsonForms } from '@jsonforms/vue';
 import { createAjv, defaultErrorTranslator } from '@jsonforms/core';
 import { vanillaRenderers } from '@jsonforms/vue-vanilla';
 import { component } from './AbstractSubcomponent.vue';
+import ajvErrors from 'ajv-errors';
 
 const handleDefaultsAjv = createAjv({ useDefaults: true });
+ajvErrors(handleDefaultsAjv);
+
+// Resolve a custom message template for an error, checking x-invalid-message
+// (our vendor extension) and errorMessage (ajv-errors standard keyword).
+// Replaces %s with the current field value. Returns null if neither is set.
+function customMessage(error) {
+  const template = error.parentSchema?.['x-invalid-message']
+    ?? (error.message?.includes('%s') ? error.message : null);
+  if (!template) return null;
+  return template.replace('%s', String(error.data ?? ''));
+}
 
 function translateError(error, t, uischema) {
-  const template = error.parentSchema?.['x-invalid-message'];
-  if (template) {
-    return template.replace('%s', String(error.data ?? ''));
-  }
-  return defaultErrorTranslator(error, t, uischema);
+  return customMessage(error) ?? defaultErrorTranslator(error, t, uischema);
 }
 
 const i18n = { translateError };
@@ -65,9 +73,8 @@ function onChange(event) {
   if (!event.data) return;
 
   formErrors.value = event.errors.map((error) => {
-    const template = error.parentSchema?.['x-invalid-message'];
-    if (!template) return error;
-    return { ...error, message: template.replace('%s', String(error.data ?? '')) };
+    const msg = customMessage(error);
+    return msg ? { ...error, message: msg } : error;
   });
 
   let changed = false;
