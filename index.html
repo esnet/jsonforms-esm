@@ -107,6 +107,32 @@
         }
     </script>
     <button onclick='errors()'>Error Data to Console</button>
+    <br>
+    <script>
+      function testVendorExtensions() {
+        let elem = document.querySelector("json-form");
+        elem.setAttribute("schema-data", JSON.stringify({
+          properties: {
+            a_number: {
+              type: "integer",
+              minimum: 1,
+              maximum: 10,
+              "x-placeholder": "Enter a number (1–10)",
+              "x-invalid-message": "'%s' is not a valid number between 1 and 10.",
+            },
+            another_property: {
+              type: "string",
+              pattern: "^[a-z]+$",
+              "x-placeholder": "lowercase letters only",
+              "x-invalid-message": "'%s' must contain only lowercase letters.",
+            }
+          },
+          required: ["a_number", "another_property"]
+        }));
+        elem.setAttribute("form-data", JSON.stringify({ a_number: 5, another_property: "hello" }));
+      }
+    </script>
+    <button onclick='testVendorExtensions()'>Test x-placeholder &amp; x-invalid-message</button>
 
   </body>
 </html>
