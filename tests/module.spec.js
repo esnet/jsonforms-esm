@@ -1,454 +1,825 @@
-var formData = { a_number: 5, another_property: "Some String" };
-var emptyFormData = {};
-var partialFormData = { a_number: 5 };
-var schemaData = {
+// ─── Shared fixtures ─────────────────────────────────────────────────────────
+
+const formData = { a_number: 5, another_property: "Some String" };
+const emptyFormData = {};
+const partialFormData = { a_number: 5 };
+
+const schemaData = {
   properties: {
     a_number: { type: "number", default: 10 },
     another_property: { type: "string", default: "Test" },
   },
   required: ["a_number", "another_property"],
 };
-var uiSchemaData = {
+
+const uiSchemaData = {
   type: "VerticalLayout",
   elements: [
-    {
-      type: "Control",
-      scope: "#/properties/a_number",
-    },
-    {
-      type: "Control",
-      scope: "#/properties/another_property",
-    },
+    { type: "Control", scope: "#/properties/a_number" },
+    { type: "Control", scope: "#/properties/another_property" },
   ],
 };
 
-const hyphenDefaultData = {
+const hyphenSchema = {
   properties: {
     "a-number": { type: "integer", default: 10, maximum: 100 },
     "a-bool": { type: "boolean", default: true },
     another_property: { type: "string", default: "Test" },
   },
   required: ["a-number", "a-bool"],
-}
-
-const hyphenUISchemaData = {
-  type: "VerticalLayout",
-  elements: [
-    {
-      type: "Control",
-      scope: "#/properties/a-number",
-    },
-    {
-      type: "Control",
-      scope: "#/properties/a-bool",
-    },
-    {
-      type: "Control",
-      scope: "#/properties/another_property",
-    },
-  ],
 };
 
+const hyphenUISchema = {
+  type: "VerticalLayout",
+  elements: [
+    { type: "Control", scope: "#/properties/a-number" },
+    { type: "Control", scope: "#/properties/a-bool" },
+    { type: "Control", scope: "#/properties/another_property" },
+  ],
+};
 
 const HIGH_RANK = 3;
 const LOWEST_RANK = -1;
 
+function customTester(uischema) {
+  if (!uischema.scope) return LOWEST_RANK;
+  return uischema.scope.endsWith("a_number") ? HIGH_RANK : LOWEST_RANK;
+}
+
 function customRenderer(data, handleChange, path) {
-  // this mechanism is not ideal. It appears that we must create a
-  // vue component to bind to the DOM, and we can't do this with a
-  // 'normal' webcomponent. As such, we have to create the element
-  // within the vue section of the code, and here, we just pass in the
-  // tag name and properties. See AbstractSubcomponent.vue to
-  // see how the implementation ends up using `h()` (a vue builtin
-  // to render "html") to render the actual DOM elements.
-  let elemToReturn = { "tag": "dummy-custom-component", "props": {} }
-  elemToReturn.props.value = data;
-  elemToReturn.props.onChange = function(event){
-    let target = event.target
-    if(event.target.tagName != "INPUT"){
-      target = target.querySelector("input");
-    }
-    return handleChange(path, parseInt(target.getAttribute("value")));
+  return {
+    tag: "dummy-custom-component",
+    props: {
+      value: data,
+      onChange(event) {
+        let target = event.target;
+        if (event.target.tagName !== "INPUT") {
+          target = target.querySelector("input");
+        }
+        return handleChange(path, parseInt(target.getAttribute("value")));
+      },
+    },
   };
-  return elemToReturn
 }
 
-function customTester(uischema, schema, context){
-  if(!uischema.scope) return LOWEST_RANK;
-  if(uischema.scope.endsWith("a_number")){
-    return HIGH_RANK;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Setting attributes BEFORE appendChild makes the initial Vue render synchronous,
+// so DOM queries work immediately after this call without waiting for an update event.
+function makeForm(attrs = {}) {
+  const elem = document.createElement("json-form");
+  for (const [k, v] of Object.entries(attrs)) {
+    elem.setAttribute(k, v);
   }
-  return LOWEST_RANK;
+  document.body.appendChild(elem);
+  return elem;
 }
 
+// For custom renderers: append with NO attrs (mounts with no data), call appendRenderer,
+// then set attrs to trigger the first meaningful render with the renderer already active.
+function makeFormForCustomRenderer() {
+  const elem = document.createElement("json-form");
+  document.body.appendChild(elem);
+  return elem;
+}
 
-describe("Component json-form", () => {
-  beforeEach(function () {
-    let elem = document.createElement("json-form");
-    elem.setAttribute("form-data", JSON.stringify(formData));
-    elem.setAttribute("schema-data", JSON.stringify(schemaData));
-    elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
-    document.body.appendChild(elem);
+function removeAll() {
+  document.querySelectorAll("json-form").forEach((f) => f.remove());
+}
+
+// ─── 1. Element creation & DOM integration ───────────────────────────────────
+
+describe("Element creation", () => {
+  afterEach(removeAll);
+
+  it("creates a <json-form> with no attributes", () => {
+    const elem = makeForm();
+    expect(elem instanceof HTMLElement).toBe(true);
   });
 
-  afterEach(function () {
-    var forms = document.querySelectorAll("json-form");
-    forms.forEach((form) => {
-      form.remove();
+  it("creates a <json-form> with all three data attributes", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
     });
+    expect(elem instanceof HTMLElement).toBe(true);
   });
 
-  it("should append an element, even with no attributes set", () => {
-    let elem = document.createElement("json-form");
-    document.body.appendChild(elem);
-    let isInstance = document.querySelector("json-form") instanceof HTMLElement;
-    expect(isInstance).toBeTruthy();
-  });
-
-  it("should append a json-form element with attributes set", async () => {
-    let isInstance = document.querySelector("json-form") instanceof HTMLElement;
-    expect(isInstance).toBeTruthy();
-  });
-
-  it("should NOT use the shadow DOM", () => {
-    let input = document.querySelector("input");
+  it("does NOT use shadow DOM — inputs are queryable from the document", () => {
+    makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    const input = document.querySelector("input");
     expect(input).toBeTruthy();
     expect(input.value).toBeTruthy();
   });
 
-  it("should accept weird values, logging issues to the console", (done) => {
-    let elem = document.querySelector("json-form");
-    elem.setAttribute("form-data", "nonsense");
-    elem.addEventListener("update", () => {
-      let input = document.querySelector("input");
-      expect(input?.value).toBeFalsy();
-      done();
+  it("exposes instance property reflecting current form data", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
     });
-  });
-
-  it("should produce valid JSON output", () => {
-    let elem = document.querySelector("json-form");
-    let obj = JSON.parse(elem.serializeForm());
-    expect(obj.a_number).toEqual(5);
-    expect(obj.another_property).toEqual("Some String");
+    expect(elem.instance).toEqual(formData);
   });
 });
 
-describe("Component json-form with empty form data", () => {
-  beforeEach(function () {
-    let elem = document.createElement("json-form");
-    elem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    elem.setAttribute("schema-data", JSON.stringify(schemaData));
-    elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
-    document.body.appendChild(elem);
+// ─── 2. JSON parsing & error handling ────────────────────────────────────────
+
+describe("JSON parsing", () => {
+  afterEach(removeAll);
+
+  it("renders inputs for valid form-data", () => {
+    makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    const input = document.querySelector("input");
+    expect(input).toBeTruthy();
+    expect(input.value).toBeTruthy();
   });
 
-  afterEach(function () {
-    const forms = document.querySelectorAll("json-form");
-    forms.forEach((form) => form.remove());
+  it("handles invalid form-data gracefully (logs error, renders without data)", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    elem.setAttribute("form-data", "nonsense");
+    elem.addEventListener("update", () => {
+      const input = elem.querySelector("input");
+      expect(input?.value).toBeFalsy();
+      done();
+    }, { once: true });
   });
 
-  it("should set default values if an empty object is passed", (done) => {
-    let elem = document.querySelector("json-form");
-    const formData = JSON.parse(elem.serializeForm());
-    expect(formData.a_number).toEqual(10);
-    expect(formData.another_property).toEqual("Test");
-    done();
+  it("handles invalid schema-data gracefully (element still exists)", () => {
+    const elem = makeForm({ "schema-data": "not-json" });
+    expect(elem instanceof HTMLElement).toBe(true);
   });
 
-  it("should set default values for a partial filled object", (done) => {
-    let elem = document.querySelector("json-form");
+  it("handles invalid layout-data gracefully (element still exists)", () => {
+    const elem = makeForm({ "layout-data": "not-json" });
+    expect(elem instanceof HTMLElement).toBe(true);
+  });
+
+  it("accepts empty/missing attributes without crashing", () => {
+    const elem = makeForm({});
+    expect(elem instanceof HTMLElement).toBe(true);
+  });
+
+  it("recovers when form-data goes from invalid back to valid", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    elem.setAttribute("form-data", "bad-json");
+    elem.addEventListener("update", () => {
+      elem.setAttribute("form-data", JSON.stringify({ a_number: 42, another_property: "ok" }));
+      elem.addEventListener("update", () => {
+        const parsed = JSON.parse(elem.serializeForm());
+        expect(parsed.a_number).toEqual(42);
+        done();
+      }, { once: true });
+    }, { once: true });
+  });
+});
+
+// ─── 3. Default values via AJV ───────────────────────────────────────────────
+
+describe("Default values", () => {
+  afterEach(removeAll);
+
+  it("fills in schema defaults when form-data is an empty object", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    const parsed = JSON.parse(elem.serializeForm());
+    expect(parsed.a_number).toEqual(10);
+    expect(parsed.another_property).toEqual("Test");
+  });
+
+  it("preserves provided values and fills in missing defaults for partial data", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
     elem.setAttribute("form-data", JSON.stringify(partialFormData));
     elem.addEventListener("update", () => {
-      const formData = JSON.parse(elem.serializeForm());
-      expect(formData.a_number).toEqual(5);
-      expect(formData.another_property).toEqual("Test");
+      const parsed = JSON.parse(elem.serializeForm());
+      expect(parsed.a_number).toEqual(5);
+      expect(parsed.another_property).toEqual("Test");
       done();
-    });
+    }, { once: true });
   });
 
-  it("should update the serialized form data when the form changes", (done)=>{
-    let elem = document.createElement("json-form");
-    document.body.appendChild(elem);
-    elem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    elem.setAttribute("schema-data", JSON.stringify(schemaData));
-    elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
-    let listenerAdded = false;
-    elem.addEventListener("update", ()=>{
-      let input = elem.querySelector("input");
-      let valueBefore = elem.serializeForm();
-      input.setAttribute("value", 1000);
-      input.value = 1000;
-      let calls = 0;
-      let removed = false;
-       if(!listenerAdded){
-        elem.addEventListener("change", ()=>{
-          let valueAfter = elem.serializeForm();
-          calls++;
-          if(!removed){
-            document.body.removeChild(elem);
-            removed = true;
-          }
-          if(valueAfter != valueBefore){
-            expect(valueBefore).not.toEqual(valueAfter);
-            done();
-          }
-        })
-        listenerAdded = true;
-      }
-      let changeEvent = new Event("change", {bubbles: true});
-      input.dispatchEvent(changeEvent);
-    })
-  })
-
-  it("should fire a signal to allow users to interact with the DOM node before it is rendered", (done)=>{
-    let called = false
-    const listener = (ev)=>{
-      if(!! called) return
-      called = true;
-      expect(ev.detail[0].target.appendRenderer).toBeDefined();
-      let output = document.removeEventListener("json-form:beforeMount", listener);
-      newElem.remove();
-      done();
-    }
-    document.addEventListener("json-form:beforeMount", listener)
-    let newElem = document.createElement("json-form");
-    document.body.appendChild(newElem);
-  })
-
-  it("should fire a signal to allow users to interact with the DOM node after it is rendered", (done)=>{
-    let called = false
-    const listener = (ev)=>{
-      if(!! called) return
-      called = true;
-      expect(ev.detail[0].target.appendRenderer).toBeDefined();
-      let output = document.removeEventListener("json-form:mounted", listener);
-      newElem.remove();
-      done();
-    }
-    document.addEventListener("json-form:mounted", listener)
-    let newElem = document.createElement("json-form");
-    document.body.appendChild(newElem);
-
-  })
-
-  it("should fire a signal that allows users to attach a custom renderer before the first render", (done)=>{
-    let called = false
-
-
-    function specialRenderer(data, handleChange, path) {
-      let elemToReturn = { "tag": "dummy-custom-component", "props": {} }
-      return elemToReturn
-    }
-
-    const beforeMountListener = (ev)=>{
-      expect(ev.detail[0].target.appendRenderer).toBeDefined();
-      let options = { tester: customTester, renderer: specialRenderer };
-      ev.detail[0].target.appendRenderer(options);
-      let output = document.removeEventListener("json-form:beforeMount", beforeMountListener);
-    }
-    document.addEventListener("json-form:beforeMount", beforeMountListener)
-
-    let newElem = document.createElement("json-form");
-
-    const updatedListener = ()=>{
-      let customElements = newElem.querySelectorAll("q");
-      customElements = newElem.querySelectorAll("dummy-custom-component");
-      if(!!called) return
-      // in some cases, the customElements aren't available on first
-      // .update() call. If we don't see them yet, return.
-      if(!customElements.length) return
-      called = true;
-      expect(customElements.length).toBeGreaterThan(0);
-      newElem.remove();
-      document.removeEventListener("json-form:updated", updatedListener);
-      done();
-    }
-    newElem.addEventListener("json-form:updated", updatedListener)
-
-    document.body.appendChild(newElem);
-    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    newElem.setAttribute("schema-data", JSON.stringify(schemaData));
-    newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
-  })
-
-  it("should support custom renderers for component overrides", (done)=>{
-    let newElem = document.createElement("json-form");
-
-    let initialRenderComplete = false;
-    let valueUpdateRenderComplete = false;
-    newElem.addEventListener("update", () => {
-      let customElements = newElem.querySelectorAll("dummy-custom-component");
-      if(!initialRenderComplete){
-        expect(customElements.length).toBeGreaterThan(0);
-        let inputToChange = newElem.querySelector("dummy-custom-component > input");
-
-        inputToChange.setAttribute("value", 1000);
-        var changeEvent = new Event('change', { bubbles: true });
-        inputToChange.dispatchEvent(changeEvent);
-        // tick the bool so we don't call 'done' again (or execute this if block)
-        initialRenderComplete = true;
-      }
+  it("fills in defaults for fields with hyphenated names", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(hyphenSchema),
+      "layout-data": JSON.stringify(hyphenUISchema),
     });
-    newElem.addEventListener("change", (ev)=>{
-      if(initialRenderComplete && !valueUpdateRenderComplete && ev.target.tagName == "JSON-FORM"){
-        let formData = JSON.parse(newElem.serializeForm());
-        expect(formData.a_number).toEqual(1000);
-        valueUpdateRenderComplete = true;
-        newElem.remove();
+    const numberInput = elem.querySelector("input[type='number']");
+    expect(numberInput.value).toEqual("10");
+    const boolInput = elem.querySelector("input[type='checkbox']");
+    expect(boolInput.value).toEqual("on");
+  });
+});
+
+// ─── 4. Dynamic attribute updates ────────────────────────────────────────────
+
+describe("Dynamic attribute updates", () => {
+  afterEach(removeAll);
+
+  it("re-parses form-data when the attribute changes", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    elem.setAttribute("form-data", JSON.stringify({ a_number: 99, another_property: "hi" }));
+    elem.addEventListener("update", () => {
+      const parsed = JSON.parse(elem.serializeForm());
+      expect(parsed.a_number).toEqual(99);
+      done();
+    }, { once: true });
+  });
+
+  it("fires the update event after the DOM has re-rendered", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    elem.addEventListener("update", () => {
+      expect(elem.querySelector("input")).toBeTruthy();
+      done();
+    }, { once: true });
+    elem.setAttribute("form-data", JSON.stringify(formData));
+  });
+});
+
+// ─── 5. Serialization ─────────────────────────────────────────────────────────
+
+describe("serializeForm()", () => {
+  afterEach(removeAll);
+
+  it("returns a valid JSON string", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    expect(() => JSON.parse(elem.serializeForm())).not.toThrow();
+  });
+
+  it("reflects the initial form data values", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    const obj = JSON.parse(elem.serializeForm());
+    expect(obj.a_number).toEqual(5);
+    expect(obj.another_property).toEqual("Some String");
+  });
+
+  it("reflects changes after user input", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    // The initial render is synchronous (attrs set before appendChild).
+    // Directly interact with the rendered input, then listen for the change event.
+    const valueBefore = elem.serializeForm();
+    const input = elem.querySelector("input");
+    input.setAttribute("value", 1000);
+    input.value = 1000;
+
+    elem.addEventListener("change", () => {
+      const valueAfter = elem.serializeForm();
+      if (valueAfter !== valueBefore) {
+        expect(valueAfter).not.toEqual(valueBefore);
         done();
       }
     });
-    document.body.appendChild(newElem);
-    newElem.appendRenderer({ tester: customTester, renderer: customRenderer });
-    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    newElem.setAttribute("schema-data", JSON.stringify(schemaData));
-    newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
-  })
 
-  it("should correctly set values in custom widgets when the form is rendered", (done)=>{
-    let newElem = document.createElement("json-form");
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+});
+
+// ─── 6. Validation & errors ───────────────────────────────────────────────────
+
+describe("validate() and errors()", () => {
+  afterEach(removeAll);
+
+  it("validate() is defined on the element", () => {
+    const elem = makeForm();
+    expect(elem.validate).toBeDefined();
+  });
+
+  it("validate() returns true initially (no errors on fresh form)", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    expect(elem.validate()).toBe(true);
+  });
+
+  it("validate() returns false after an invalid value is entered", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(hyphenSchema),
+      "layout-data": JSON.stringify(hyphenUISchema),
+    });
+    let called = false;
+    elem.addEventListener("change", () => {
+      const isValid = elem.validate();
+      if (called || isValid) return;
+      called = true;
+      expect(isValid).toBe(false);
+      done();
+    });
+    const input = elem.querySelector("input");
+    input.setAttribute("value", 1000); // violates maximum: 100
+    input.value = 1000;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  it("errors() is defined on the element", () => {
+    const elem = makeForm();
+    expect(elem.errors).toBeDefined();
+  });
+
+  it("errors() returns an empty array initially", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    expect(elem.errors()).toEqual([]);
+  });
+
+  it("errors() returns an array of error objects when validation fails", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(hyphenSchema),
+      "layout-data": JSON.stringify(hyphenUISchema),
+    });
+    let called = false;
+    elem.addEventListener("change", () => {
+      const errs = elem.errors();
+      if (called || !errs.length) return;
+      called = true;
+      expect(errs.length).toBeGreaterThan(0);
+      done();
+    });
+    const input = elem.querySelector("input");
+    input.setAttribute("value", 1000);
+    input.value = 1000;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  it("errors() returns a deep copy — mutations do not affect internal state", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(hyphenSchema),
+      "layout-data": JSON.stringify(hyphenUISchema),
+    });
+    let called = false;
+    elem.addEventListener("change", () => {
+      const errs = elem.errors();
+      if (called || !errs.length) return;
+      called = true;
+      errs.splice(0, errs.length); // mutate the returned copy
+      expect(elem.errors().length).toBeGreaterThan(0); // internal state unchanged
+      done();
+    });
+    const input = elem.querySelector("input");
+    input.setAttribute("value", 1000);
+    input.value = 1000;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+});
+
+// ─── 7. Events ───────────────────────────────────────────────────────────────
+
+describe("Events", () => {
+  afterEach(removeAll);
+
+  it("fires json-form:beforeMount with target that has appendRenderer", (done) => {
+    let called = false;
+    const listener = (ev) => {
+      if (called) return;
+      called = true;
+      expect(ev.detail[0].target.appendRenderer).toBeDefined();
+      document.removeEventListener("json-form:beforeMount", listener);
+      done();
+    };
+    document.addEventListener("json-form:beforeMount", listener);
+    makeForm();
+  });
+
+  it("fires json-form:mounted with target that has all public API methods", (done) => {
+    let called = false;
+    const listener = (ev) => {
+      if (called) return;
+      called = true;
+      const target = ev.detail[0].target;
+      expect(target.appendRenderer).toBeDefined();
+      expect(target.serializeForm).toBeDefined();
+      expect(target.validate).toBeDefined();
+      expect(target.errors).toBeDefined();
+      document.removeEventListener("json-form:mounted", listener);
+      done();
+    };
+    document.addEventListener("json-form:mounted", listener);
+    makeForm();
+  });
+
+  it("fires update event after Vue renders", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    elem.addEventListener("update", () => {
+      expect(elem.querySelector("input")).toBeTruthy();
+      done();
+    }, { once: true });
+    elem.setAttribute("form-data", JSON.stringify(formData));
+  });
+
+  it("fires change event when user input changes a value", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    const valueBefore = elem.serializeForm();
+    elem.addEventListener("change", () => {
+      const valueAfter = elem.serializeForm();
+      if (valueAfter !== valueBefore) {
+        expect(valueAfter).not.toEqual(valueBefore);
+        done();
+      }
+    });
+    const input = elem.querySelector("input");
+    input.setAttribute("value", 7);
+    input.value = 7;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  it("fires json-form:beforeUpdate and json-form:updated around re-renders", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    let sawBeforeUpdate = false;
+    document.addEventListener("json-form:beforeUpdate", () => { sawBeforeUpdate = true; }, { once: true });
+    document.addEventListener("json-form:updated", () => {
+      expect(sawBeforeUpdate).toBe(true);
+      done();
+    }, { once: true });
+    elem.setAttribute("form-data", JSON.stringify(formData));
+  });
+});
+
+// ─── 8. Custom renderers ──────────────────────────────────────────────────────
+//
+// These tests use makeFormForCustomRenderer() — append with no attrs first,
+// then call appendRenderer, then set attrs to trigger the first data-bearing render.
+// This ensures the custom renderer is registered before JSONForms first renders.
+
+describe("Custom renderers", () => {
+  afterEach(removeAll);
+
+  it("appendRenderer() is callable after the element is connected", () => {
+    const elem = makeForm();
+    expect(() => elem.appendRenderer({ tester: customTester, renderer: customRenderer })).not.toThrow();
+  });
+
+  it("custom renderer replaces the default renderer for matched controls", (done) => {
+    const elem = makeFormForCustomRenderer();
+    elem.appendRenderer({ tester: customTester, renderer: customRenderer });
+
+    let called = false;
+    elem.addEventListener("update", () => {
+      if (called) return;
+      const custom = elem.querySelectorAll("dummy-custom-component");
+      if (!custom.length) return;
+      called = true;
+      expect(custom.length).toBeGreaterThan(0);
+      done();
+    });
+
+    elem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    elem.setAttribute("schema-data", JSON.stringify(schemaData));
+    elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+  });
+
+  it("custom renderer receives data, handleChange, path, and schema arguments", (done) => {
+    const elem = makeFormForCustomRenderer();
+    let called = false;
+    const renderer = (data, handleChange, path, schema) => {
+      if (!called) {
+        called = true;
+        expect(data).toBeDefined();
+        expect(handleChange).toBeDefined();
+        expect(path).toBeDefined();
+        expect(schema).toBeDefined();
+        done();
+      }
+      return { tag: "dummy-custom-component", props: {} };
+    };
+    elem.appendRenderer({ tester: customTester, renderer });
+    elem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    elem.setAttribute("schema-data", JSON.stringify(schemaData));
+    elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+  });
+
+  it("custom renderer values are correctly bound and displayed", (done) => {
+    const elem = makeFormForCustomRenderer();
+    elem.appendRenderer({ tester: customTester, renderer: customRenderer });
+
+    let called = false;
+    elem.addEventListener("update", () => {
+      if (called) return;
+      const custom = elem.querySelectorAll("dummy-custom-component");
+      if (!custom.length) return;
+      called = true;
+      expect(custom[0].value).toEqual(10);
+      expect(custom[0].getAttribute("value")).toEqual("10");
+      done();
+    });
+
+    elem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    elem.setAttribute("schema-data", JSON.stringify(schemaData));
+    elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+  });
+
+  it("handleChange from custom renderer updates the serialized form data", (done) => {
+    const elem = makeFormForCustomRenderer();
+    elem.appendRenderer({ tester: customTester, renderer: customRenderer });
 
     let initialRenderComplete = false;
     let valueUpdateRenderComplete = false;
-    let called = false;
-    newElem.addEventListener("update", () => {
-      let customElements = newElem.querySelectorAll("dummy-custom-component");
-      if(!!called) return
-      called = true
-      expect(customElements[0].value).toEqual(10)
-      expect(customElements[0].getAttribute("value")).toEqual("10")
-      newElem.remove();
-      done();
+
+    elem.addEventListener("update", () => {
+      if (initialRenderComplete) return;
+      const custom = elem.querySelectorAll("dummy-custom-component");
+      if (!custom.length) return;
+      initialRenderComplete = true;
+      expect(custom.length).toBeGreaterThan(0);
+      const inputToChange = elem.querySelector("dummy-custom-component > input");
+      inputToChange.setAttribute("value", 1000);
+      inputToChange.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    document.body.appendChild(newElem);
-    newElem.appendRenderer({ tester: customTester, renderer: customRenderer });
-    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    newElem.setAttribute("schema-data", JSON.stringify(schemaData));
-    newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
 
-  })
+    elem.addEventListener("change", () => {
+      if (!initialRenderComplete || valueUpdateRenderComplete) return;
+      const parsed = JSON.parse(elem.serializeForm());
+      if (parsed.a_number === 1000) {
+        valueUpdateRenderComplete = true;
+        done();
+      }
+    });
 
-  it("should provide the full schema definition when a custom widget is rendered (this behavior differs from JSON Forms)", (done)=>{
-    let newElem = document.createElement("json-form");
+    elem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    elem.setAttribute("schema-data", JSON.stringify(schemaData));
+    elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+  });
 
+  it("custom renderer attached via json-form:beforeMount fires and renders", (done) => {
     let called = false;
-    let renderer = function(data, handleChange, path, schema){
-      const output = { "tag": "dummy-custom-component", "props": {} };
-      if(!!called) return output;
-      called = true;
-      expect(data).toBeDefined();
-      expect(handleChange).toBeDefined();
-      expect(path).toBeDefined();
-      expect(schema).toBeDefined();
-      done()
-      return output;
+
+    function specialRenderer() {
+      return { tag: "dummy-custom-component", props: {} };
     }
-    document.body.appendChild(newElem);
-    newElem.appendRenderer({ tester: customTester, renderer: renderer });
-    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    newElem.setAttribute("schema-data", JSON.stringify(schemaData));
-    newElem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
 
-  })
+    const beforeMountListener = (ev) => {
+      expect(ev.detail[0].target.appendRenderer).toBeDefined();
+      ev.detail[0].target.appendRenderer({ tester: customTester, renderer: specialRenderer });
+      document.removeEventListener("json-form:beforeMount", beforeMountListener);
+    };
+    document.addEventListener("json-form:beforeMount", beforeMountListener);
 
-  it("should allow set a default properly, even if the field name contains a hyphen", ()=>{
-    let newElem = document.createElement("json-form");
+    const elem = document.createElement("json-form");
 
-    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
-    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
-    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    document.body.appendChild(newElem);
+    const updatedListener = () => {
+      if (called) return;
+      const custom = elem.querySelectorAll("dummy-custom-component");
+      if (!custom.length) return;
+      called = true;
+      expect(custom.length).toBeGreaterThan(0);
+      elem.remove();
+      document.removeEventListener("json-form:updated", updatedListener);
+      done();
+    };
+    elem.addEventListener("json-form:updated", updatedListener);
 
-    let numberInput = newElem.querySelector("input[type='number']");
-    expect(numberInput.value).toEqual('10');
-    let boolInput = newElem.querySelector("input[type='checkbox']");
-    expect(boolInput.value).toEqual("on")
-  })
+    document.body.appendChild(elem);
+    elem.setAttribute("form-data", JSON.stringify(emptyFormData));
+    elem.setAttribute("schema-data", JSON.stringify(schemaData));
+    elem.setAttribute("layout-data", JSON.stringify(uiSchemaData));
+  });
+});
 
-  it("should allow a readonly parameter", (done)=>{
-    let newElem = document.createElement("json-form");
+// ─── 9. Readonly mode ─────────────────────────────────────────────────────────
 
-    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
-    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
-    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    newElem.setAttribute("readonly", "true");
-    document.body.appendChild(newElem);
+describe("Readonly mode", () => {
+  afterEach(removeAll);
 
-    let input = newElem.querySelector("input");
-    expect(input.hasAttribute("disabled")).toEqual(true);
+  it("disables inputs when readonly attribute is set", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(hyphenSchema),
+      "layout-data": JSON.stringify(hyphenUISchema),
+      "readonly": "true",
+    });
+    const input = elem.querySelector("input");
+    expect(input.hasAttribute("disabled")).toBe(true);
+  });
 
+  it("does not disable inputs when readonly is absent", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(hyphenSchema),
+      "layout-data": JSON.stringify(hyphenUISchema),
+    });
+    const input = elem.querySelector("input");
+    expect(input.hasAttribute("disabled")).toBe(false);
+  });
+});
 
-    newElem = document.createElement("json-form");
+// ─── 10. x-placeholder ────────────────────────────────────────────────────────
 
-    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
-    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
-    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    document.body.appendChild(newElem);
+describe("x-placeholder", () => {
+  afterEach(removeAll);
 
-    input = newElem.querySelector("input");
-    expect(input.hasAttribute("disabled")).toEqual(false);
+  it("sets the placeholder attribute on the input from x-placeholder in the schema", () => {
+    const schema = {
+      properties: {
+        slip: { type: "string", "x-placeholder": "e.g. PT5M", default: "" },
+      },
+    };
+    const uiSchema = {
+      type: "VerticalLayout",
+      elements: [{ type: "Control", scope: "#/properties/slip" }],
+    };
+    const elem = makeForm({
+      "form-data": JSON.stringify({ slip: "" }),
+      "schema-data": JSON.stringify(schema),
+      "layout-data": JSON.stringify(uiSchema),
+    });
+    const input = elem.querySelector("input");
+    expect(input.placeholder).toEqual("e.g. PT5M");
+  });
 
-    done();
-  })
+  it("does not override a placeholder already set in uischema options", () => {
+    const schema = {
+      properties: {
+        slip: { type: "string", "x-placeholder": "from schema", default: "" },
+      },
+    };
+    const uiSchema = {
+      type: "VerticalLayout",
+      elements: [{
+        type: "Control",
+        scope: "#/properties/slip",
+        options: { placeholder: "from uischema" },
+      }],
+    };
+    const elem = makeForm({
+      "form-data": JSON.stringify({ slip: "" }),
+      "schema-data": JSON.stringify(schema),
+      "layout-data": JSON.stringify(uiSchema),
+    });
+    const input = elem.querySelector("input");
+    expect(input.placeholder).toEqual("from uischema");
+  });
 
-  it("should have a .validate() method that returns true if form valid, false otherwise.", (done)=>{
-    let newElem = document.createElement("json-form");
+  it("leaves placeholder unset when x-placeholder is absent", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    const input = elem.querySelector("input");
+    expect(input.placeholder).toEqual("");
+  });
+});
 
-    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
-    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
-    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    newElem.setAttribute("id", "testing")
+// ─── 11. Custom error messages via x-invalid-message ─────────────────────────
+
+describe("x-invalid-message", () => {
+  const isoSchema = {
+    properties: {
+      slip: {
+        type: "string",
+        pattern: "^P",
+        "x-invalid-message": "'%s' is not a valid ISO 8601 duration.",
+        default: "PT5M",
+      },
+    },
+  };
+
+  const isoUISchema = {
+    type: "VerticalLayout",
+    elements: [{ type: "Control", scope: "#/properties/slip" }],
+  };
+
+  afterEach(removeAll);
+
+  it("uses x-invalid-message as the error text when validation fails", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify({ slip: "PT5M" }),
+      "schema-data": JSON.stringify(isoSchema),
+      "layout-data": JSON.stringify(isoUISchema),
+    });
 
     let called = false;
-    newElem.addEventListener("change", () => {
-      let isValid = newElem.validate();
-      // in some cases this will be called multiple times with the value that's not under test...
-      // filter out these cases. There should be at lease one that fits our criteria.
-      if(!!called || !!isValid) return
-      expect(isValid).toEqual(false);
+    elem.addEventListener("change", () => {
+      if (called) return;
+      const errs = elem.errors();
+      if (!errs.length) return;
       called = true;
+      expect(errs[0].message).toEqual("'notAnISO' is not a valid ISO 8601 duration.");
       done();
     });
 
-    document.body.appendChild(newElem);
+    const input = elem.querySelector("input");
+    input.value = "notAnISO";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 
-    let inputToChange = newElem.querySelector("input");
-    inputToChange.setAttribute("value", 1000);
-    inputToChange.value = 1000;
-    var changeEvent = new Event('change', { bubbles: true });
-    inputToChange.dispatchEvent(changeEvent);
-
-    expect(document.querySelector("#testing").validate).toBeDefined();
-  })
-
-  it("should have an .errors() method that returns the current list of errors for the form.", (done)=>{
-    let newElem = document.createElement("json-form");
-
-    newElem.setAttribute("schema-data", JSON.stringify(hyphenDefaultData));
-    newElem.setAttribute("layout-data", JSON.stringify(hyphenUISchemaData));
-    newElem.setAttribute("form-data", JSON.stringify(emptyFormData));
-    newElem.setAttribute("id", "errors")
+  it("supports the standard errorMessage keyword (ajv-errors)", (done) => {
+    const schema = {
+      properties: {
+        slip: {
+          type: "string",
+          pattern: "^P",
+          errorMessage: "'%s' is not a valid ISO 8601 duration.",
+          default: "PT5M",
+        },
+      },
+    };
+    const uiSchema = {
+      type: "VerticalLayout",
+      elements: [{ type: "Control", scope: "#/properties/slip" }],
+    };
+    const elem = makeForm({
+      "form-data": JSON.stringify({ slip: "PT5M" }),
+      "schema-data": JSON.stringify(schema),
+      "layout-data": JSON.stringify(uiSchema),
+    });
 
     let called = false;
-    newElem.addEventListener("change", () => {
-      let errors = newElem.errors();
-      // in some cases this will be called multiple times with the value that's not under test...
-      // filter out these cases. There should be at lease one that fits our criteria.
-      if(!!called || !errors.length) return
-      expect(errors.length).toBeGreaterThan(0);
+    elem.addEventListener("change", () => {
+      if (called) return;
+      const errs = elem.errors();
+      if (!errs.length) return;
       called = true;
+      expect(errs[0].message).toEqual("'notAnISO' is not a valid ISO 8601 duration.");
       done();
     });
 
-    document.body.appendChild(newElem);
+    const input = elem.querySelector("input");
+    input.value = "notAnISO";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 
-    let inputToChange = newElem.querySelector("input");
-    inputToChange.setAttribute("value", 1000);
-    inputToChange.value = 1000;
-    var changeEvent = new Event('change', { bubbles: true });
-    inputToChange.dispatchEvent(changeEvent);
+  it("falls back to the default AJV message when x-invalid-message is absent", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(hyphenSchema),
+      "layout-data": JSON.stringify(hyphenUISchema),
+    });
 
-    expect(document.querySelector("#errors").errors).toBeDefined();
-  })
+    let called = false;
+    elem.addEventListener("change", () => {
+      const errs = elem.errors();
+      if (called || !errs.length) return;
+      called = true;
+      // AJV default message — does not start with a single-quoted value
+      expect(errs[0].message).toContain("must be");
+      done();
+    });
+
+    const input = elem.querySelector("input");
+    input.setAttribute("value", 1000);
+    input.value = 1000;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 });
