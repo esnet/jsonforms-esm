@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onBeforeMount, onMounted, onBeforeUpdate, onUpdated, nextTick } from 'vue';
 import { JsonForms } from '@jsonforms/vue';
-import { createAjv, defaultErrorTranslator } from '@jsonforms/core';
+import { createAjv, defaultErrorTranslator, Resolve } from '@jsonforms/core';
 import { vanillaRenderers } from '@jsonforms/vue-vanilla';
 import { component } from './AbstractSubcomponent.vue';
 import ajvErrors from 'ajv-errors';
@@ -51,9 +51,27 @@ function parseJSON(value, label) {
   }
 }
 
+// Walk a uischema tree and inject x-placeholder from the JSON schema into
+// each control's options, so the vanilla renderers pick it up via appliedOptions.
+function injectPlaceholders(uischemaNode, jsonSchema) {
+  if (!uischemaNode || !jsonSchema) return uischemaNode;
+  if (uischemaNode.scope) {
+    const fieldSchema = Resolve.schema(jsonSchema, uischemaNode.scope, jsonSchema);
+    const placeholder = fieldSchema?.['x-placeholder'];
+    if (placeholder) {
+      return { ...uischemaNode, options: { placeholder, ...uischemaNode.options } };
+    }
+  }
+  if (Array.isArray(uischemaNode.elements)) {
+    const elements = uischemaNode.elements.map((el) => injectPlaceholders(el, jsonSchema));
+    return { ...uischemaNode, elements };
+  }
+  return uischemaNode;
+}
+
 const data = ref(parseJSON(props.formData, 'form-data'));
 const schema = ref(parseJSON(props.schemaData, 'schema-data'));
-const uischema = ref(parseJSON(props.layoutData, 'layout-data'));
+const uischema = computed(() => injectPlaceholders(parseJSON(props.layoutData, 'layout-data'), schema.value));
 const renderers = ref([...vanillaRenderers]);
 const formErrors = ref([]);
 
@@ -63,10 +81,6 @@ watch(() => props.formData, (newVal) => {
 
 watch(() => props.schemaData, (newVal) => {
   schema.value = parseJSON(newVal, 'schema-data');
-});
-
-watch(() => props.layoutData, (newVal) => {
-  uischema.value = parseJSON(newVal, 'layout-data');
 });
 
 function onChange(event) {

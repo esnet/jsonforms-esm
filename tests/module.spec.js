@@ -663,7 +663,65 @@ describe("Readonly mode", () => {
   });
 });
 
-// ─── 10. Custom error messages via x-invalid-message ─────────────────────────
+// ─── 10. x-placeholder ────────────────────────────────────────────────────────
+
+describe("x-placeholder", () => {
+  afterEach(removeAll);
+
+  it("sets the placeholder attribute on the input from x-placeholder in the schema", () => {
+    const schema = {
+      properties: {
+        slip: { type: "string", "x-placeholder": "e.g. PT5M", default: "" },
+      },
+    };
+    const uiSchema = {
+      type: "VerticalLayout",
+      elements: [{ type: "Control", scope: "#/properties/slip" }],
+    };
+    const elem = makeForm({
+      "form-data": JSON.stringify({ slip: "" }),
+      "schema-data": JSON.stringify(schema),
+      "layout-data": JSON.stringify(uiSchema),
+    });
+    const input = elem.querySelector("input");
+    expect(input.placeholder).toEqual("e.g. PT5M");
+  });
+
+  it("does not override a placeholder already set in uischema options", () => {
+    const schema = {
+      properties: {
+        slip: { type: "string", "x-placeholder": "from schema", default: "" },
+      },
+    };
+    const uiSchema = {
+      type: "VerticalLayout",
+      elements: [{
+        type: "Control",
+        scope: "#/properties/slip",
+        options: { placeholder: "from uischema" },
+      }],
+    };
+    const elem = makeForm({
+      "form-data": JSON.stringify({ slip: "" }),
+      "schema-data": JSON.stringify(schema),
+      "layout-data": JSON.stringify(uiSchema),
+    });
+    const input = elem.querySelector("input");
+    expect(input.placeholder).toEqual("from uischema");
+  });
+
+  it("leaves placeholder unset when x-placeholder is absent", () => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(formData),
+      "schema-data": JSON.stringify(schemaData),
+      "layout-data": JSON.stringify(uiSchemaData),
+    });
+    const input = elem.querySelector("input");
+    expect(input.placeholder).toEqual("");
+  });
+});
+
+// ─── 11. Custom error messages via x-invalid-message ─────────────────────────
 
 describe("x-invalid-message", () => {
   const isoSchema = {
