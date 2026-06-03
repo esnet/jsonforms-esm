@@ -1,11 +1,21 @@
 <script setup>
 import { ref, computed, watch, onBeforeMount, onMounted, onBeforeUpdate, onUpdated, nextTick } from 'vue';
 import { JsonForms } from '@jsonforms/vue';
-import { createAjv } from '@jsonforms/core';
+import { createAjv, defaultErrorTranslator } from '@jsonforms/core';
 import { vanillaRenderers } from '@jsonforms/vue-vanilla';
 import { component } from './AbstractSubcomponent.vue';
 
 const handleDefaultsAjv = createAjv({ useDefaults: true });
+
+function translateError(error, t, uischema) {
+  const template = error.parentSchema?.['x-invalid-message'];
+  if (template) {
+    return template.replace('%s', String(error.data ?? ''));
+  }
+  return defaultErrorTranslator(error, t, uischema);
+}
+
+const i18n = { translateError };
 
 const props = defineProps({
   formData: String,
@@ -54,7 +64,11 @@ watch(() => props.layoutData, (newVal) => {
 function onChange(event) {
   if (!event.data) return;
 
-  formErrors.value = [...event.errors];
+  formErrors.value = event.errors.map((error) => {
+    const template = error.parentSchema?.['x-invalid-message'];
+    if (!template) return error;
+    return { ...error, message: template.replace('%s', String(error.data ?? '')) };
+  });
 
   let changed = false;
   for (const key of Object.keys(event.data)) {
@@ -120,6 +134,7 @@ defineExpose({ instance, serializeForm, appendRenderer, validate, errors });
     :renderers="renderers"
     :ajv="handleDefaultsAjv"
     :readonly="props.readonly"
+    :i18n="i18n"
     @change="onChange"
   />
 </template>

@@ -662,3 +662,70 @@ describe("Readonly mode", () => {
     expect(input.hasAttribute("disabled")).toBe(false);
   });
 });
+
+// ─── 10. Custom error messages via x-invalid-message ─────────────────────────
+
+describe("x-invalid-message", () => {
+  const isoSchema = {
+    properties: {
+      slip: {
+        type: "string",
+        pattern: "^P",
+        "x-invalid-message": "'%s' is not a valid ISO 8601 duration.",
+        default: "PT5M",
+      },
+    },
+  };
+
+  const isoUISchema = {
+    type: "VerticalLayout",
+    elements: [{ type: "Control", scope: "#/properties/slip" }],
+  };
+
+  afterEach(removeAll);
+
+  it("uses x-invalid-message as the error text when validation fails", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify({ slip: "PT5M" }),
+      "schema-data": JSON.stringify(isoSchema),
+      "layout-data": JSON.stringify(isoUISchema),
+    });
+
+    let called = false;
+    elem.addEventListener("change", () => {
+      if (called) return;
+      const errs = elem.errors();
+      if (!errs.length) return;
+      called = true;
+      expect(errs[0].message).toEqual("'notAnISO' is not a valid ISO 8601 duration.");
+      done();
+    });
+
+    const input = elem.querySelector("input");
+    input.value = "notAnISO";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  it("falls back to the default AJV message when x-invalid-message is absent", (done) => {
+    const elem = makeForm({
+      "form-data": JSON.stringify(emptyFormData),
+      "schema-data": JSON.stringify(hyphenSchema),
+      "layout-data": JSON.stringify(hyphenUISchema),
+    });
+
+    let called = false;
+    elem.addEventListener("change", () => {
+      const errs = elem.errors();
+      if (called || !errs.length) return;
+      called = true;
+      // AJV default message — does not start with a single-quoted value
+      expect(errs[0].message).toContain("must be");
+      done();
+    });
+
+    const input = elem.querySelector("input");
+    input.setAttribute("value", 1000);
+    input.value = 1000;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+});
